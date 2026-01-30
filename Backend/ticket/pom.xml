@@ -11,6 +11,7 @@
     <modules>
         <module>ticket-start</module>
         <module>ticket-controller</module>
+        <module>ticket-application</module>
     </modules>
 
     <properties>
