@@ -13,6 +13,7 @@
         <module>ticket-controller</module>
         <module>ticket-application</module>
         <module>ticket-infrastructure</module>
+        <module>ticket-domain</module>
     </modules>
 
     <properties>
