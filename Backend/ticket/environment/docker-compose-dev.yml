@@ -7,7 +7,7 @@ networks:
 services:
   mysql:
     image: mysql:8.0
-    container_name: pre-event-mysql
+    container_name: ${MYSQL_CONTAINER_NAME}
     volumes:
       - ./data/db_data:/var/lib/mysql:Z
       - ./mysql/init:/docker-entrypoint-initdb.d/:Z
@@ -17,19 +17,19 @@ services:
       '--skip-character-set-client-handshake'
     ]
     environment:
-      MYSQL_ROOT_PASSWORD: root1234
-      MYSQL_DATABASE: ticket
-      MYSQL_PASSWORD: root1234
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     ports:
-      - "3316:3306"
+      - "${MYSQL_PORT}:3306"
     networks:
       - pre-event-network
 
   #Redis
   redis:
-    container_name: pre-event-redis
+    container_name: ${REDIS_CONTAINER_NAME}
     image: redislabs/redismod:latest
     ports:
-      - "6319:6379"
+      - "${REDIS_PORT}:6379"
     networks:
       - pre-event-network
