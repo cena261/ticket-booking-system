@@ -34,3 +34,4 @@ build/
 
 ### more ###
 /Backend/ticket/environment/data/
+/Backend/ticket/environment/.env
