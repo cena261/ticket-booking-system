@@ -17,4 +17,16 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
+    <dependencies>
+        <dependency>
+            <groupId>com.cena</groupId>
+            <artifactId>ticket-domain</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.cena</groupId>
+            <artifactId>ticket-infrastructure</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+    </dependencies>
 </project>
