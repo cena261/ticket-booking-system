@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.ticketapp</groupId>
+        <artifactId>ticket-app</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>ticket-domain</artifactId>
+    <name>ticket-domain</name>
+    <description>Entities, value objects, repository interfaces, domain services. No framework wiring.</description>
+
+    <dependencies>
+        <!-- JPA annotations only. The JPA runtime (Hibernate, datasource) lives in
+             ticket-infrastructure, keeping the domain framework-agnostic. -->
+        <dependency>
+            <groupId>jakarta.persistence</groupId>
+            <artifactId>jakarta.persistence-api</artifactId>
+        </dependency>
+    </dependencies>
+</project>
