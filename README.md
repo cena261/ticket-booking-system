@@ -2,7 +2,7 @@
 
 High-concurrency event ticket booking system (concert/event, quantity-based ticket types, no seat map). Goal: **zero oversell** under high concurrency with maximum sustained throughput on the buy path.
 
-Stack: Java 21, Spring Boot 3.3.5, Maven multi-module, MySQL 8, Redis + Redisson, Kafka (KRaft), Elasticsearch, Spring Security + JWT, Prometheus/Grafana/ELK, Docker Compose.
+Stack: Java 21, Spring Boot 4.1, Maven multi-module, MySQL 8, Redis + Redisson, Kafka (KRaft), Elasticsearch, Spring Security + JWT, Prometheus/Grafana/ELK, Docker Compose.
 
 ## Module layout
 
