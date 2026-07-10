@@ -11,8 +11,6 @@
     </parent>
 
     <artifactId>ticket-application</artifactId>
-    <name>ticket-application</name>
-    <description>Use-case services, schedulers, Kafka consumers, outbox publisher.</description>
 
     <dependencies>
         <dependency>

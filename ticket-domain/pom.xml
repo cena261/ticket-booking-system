@@ -11,12 +11,9 @@
     </parent>
 
     <artifactId>ticket-domain</artifactId>
-    <name>ticket-domain</name>
-    <description>Entities, value objects, repository interfaces, domain services. No framework wiring.</description>
 
     <dependencies>
-        <!-- JPA annotations only. The JPA runtime (Hibernate, datasource) lives in
-             ticket-infrastructure, keeping the domain framework-agnostic. -->
+        <!-- annotations only; JPA runtime lives in ticket-infrastructure -->
         <dependency>
             <groupId>jakarta.persistence</groupId>
             <artifactId>jakarta.persistence-api</artifactId>

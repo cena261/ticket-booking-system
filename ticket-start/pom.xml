@@ -11,8 +11,6 @@
     </parent>
 
     <artifactId>ticket-start</artifactId>
-    <name>ticket-start</name>
-    <description>Bootable Spring Boot app: main class, application.yml, metrics registry.</description>
 
     <dependencies>
         <dependency>

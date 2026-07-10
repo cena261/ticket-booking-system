@@ -11,8 +11,6 @@
     </parent>
 
     <artifactId>ticket-controller</artifactId>
-    <name>ticket-controller</name>
-    <description>REST controllers, request/response DTOs, bean validation.</description>
 
     <dependencies>
         <dependency>

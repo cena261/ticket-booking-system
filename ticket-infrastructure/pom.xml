@@ -11,8 +11,6 @@
     </parent>
 
     <artifactId>ticket-infrastructure</artifactId>
-    <name>ticket-infrastructure</name>
-    <description>JPA impls, Redis/Redisson, Kafka producer, external gateways.</description>
 
     <dependencies>
         <dependency>
