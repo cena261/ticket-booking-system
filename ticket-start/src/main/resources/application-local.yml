@@ -10,6 +10,9 @@ spring:
       connection-timeout: 3000
   flyway:
     locations: classpath:db/migration,classpath:db/seed
+
+jwt:
+  secret: ${JWT_SECRET:local-dev-secret-change-me-please-at-least-32-bytes}
   data:
     redis:
       host: ${REDIS_HOST:localhost}
