@@ -40,8 +40,6 @@ services:
     image: apache/kafka:4.3.1
     container_name: ticket-kafka
     restart: unless-stopped
-    # Fixed 9094: the EXTERNAL listener below advertises localhost:9094, so this port
-    # cannot change without also changing the advertised listener and the app bootstrap.
     ports:
       - "9094:9094"
     environment:
