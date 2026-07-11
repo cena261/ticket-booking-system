@@ -7,12 +7,6 @@ import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.kafka.KafkaContainer;
 import org.testcontainers.utility.DockerImageName;
 
-// Shared base for all *IT tests. Containers are singletons: started once per JVM in the
-// static initializer and never stopped, so every IT in a run shares them. withReuse(true)
-// additionally keeps them alive across separate runs only if the host opts in with
-// testcontainers.reuse.enable=true; otherwise Ryuk reaps them at JVM exit.
-// Concrete ITs declare @SpringBootTest themselves; this base only supplies the containers
-// and wires their connection details.
 public abstract class AbstractIntegrationTest {
 
     static final MySQLContainer<?> MYSQL =

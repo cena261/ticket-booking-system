@@ -14,7 +14,6 @@ import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-// Proves the app context wires and reaches all three infra services against real containers.
 @SpringBootTest
 class InfraConnectivityIT extends AbstractIntegrationTest {
 
