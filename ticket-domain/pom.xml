@@ -13,7 +13,6 @@
     <artifactId>ticket-domain</artifactId>
 
     <dependencies>
-        <!-- annotations only; JPA runtime lives in ticket-infrastructure -->
         <dependency>
             <groupId>jakarta.persistence</groupId>
             <artifactId>jakarta.persistence-api</artifactId>

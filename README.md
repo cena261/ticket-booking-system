@@ -42,7 +42,7 @@ curl http://localhost:8080/actuator/health   # => {"status":"UP"}
 
 ## Configuration
 
-Copy `.env.example` to `.env` and fill in values (gitignored). Phase 1 boots with no external services; MySQL/Redis/Kafka arrive from Phase 2 onward.
+Copy `environment/.env.example` to `environment/.env` and fill in values (gitignored). Docker Compose reads it; the app's local defaults live in `application-local.yml`.
 
 ## Git flow
 
