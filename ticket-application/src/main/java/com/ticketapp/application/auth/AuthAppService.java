@@ -1,5 +1,7 @@
 package com.ticketapp.application.auth;
 
+import com.ticketapp.application.exception.AppException;
+import com.ticketapp.application.exception.ErrorCode;
 import com.ticketapp.domain.user.User;
 import com.ticketapp.domain.user.UserRepository;
 import com.ticketapp.domain.user.UserRole;
@@ -28,7 +30,7 @@ public class AuthAppService {
 
     public TokenPair register(String email, String rawPassword) {
         userRepository.findByEmail(email).ifPresent(existing -> {
-            throw new EmailAlreadyUsedException();
+            throw new AppException(ErrorCode.EMAIL_ALREADY_USED);
         });
         User user = new User();
         user.setEmail(email);
@@ -38,23 +40,25 @@ public class AuthAppService {
         try {
             return issueTokens(userRepository.save(user));
         } catch (DataIntegrityViolationException ex) {
-            throw new EmailAlreadyUsedException();
+            throw new AppException(ErrorCode.EMAIL_ALREADY_USED);
         }
     }
 
     public TokenPair login(String email, String rawPassword) {
-        User user = userRepository.findByEmail(email).orElseThrow(LoginFailedException::new);
+        User user = userRepository.findByEmail(email).orElseThrow(() -> new AppException(ErrorCode.LOGIN_FAILED));
         if (user.getStatus() != UserStatus.ACTIVE || !passwordEncoder.matches(rawPassword, user.getPasswordHash())) {
-            throw new LoginFailedException();
+            throw new AppException(ErrorCode.LOGIN_FAILED);
         }
         return issueTokens(user);
     }
 
     public TokenPair refresh(String refreshToken) {
-        Long userId = refreshTokenStore.consume(refreshToken).orElseThrow(InvalidRefreshTokenException::new);
-        User user = userRepository.findById(userId).orElseThrow(InvalidRefreshTokenException::new);
+        Long userId = refreshTokenStore.consume(refreshToken)
+                .orElseThrow(() -> new AppException(ErrorCode.INVALID_REFRESH_TOKEN));
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new AppException(ErrorCode.INVALID_REFRESH_TOKEN));
         if (user.getStatus() != UserStatus.ACTIVE) {
-            throw new InvalidRefreshTokenException();
+            throw new AppException(ErrorCode.INVALID_REFRESH_TOKEN);
         }
         return issueTokens(user);
     }
@@ -64,7 +68,7 @@ public class AuthAppService {
     }
 
     public AuthenticatedUser currentUser(Long userId) {
-        User user = userRepository.findById(userId).orElseThrow(LoginFailedException::new);
+        User user = userRepository.findById(userId).orElseThrow(() -> new AppException(ErrorCode.UNAUTHENTICATED));
         return new AuthenticatedUser(user.getId(), user.getEmail(), user.getRole());
     }
 

@@ -3,6 +3,7 @@ package com.ticketapp.controller.auth;
 import com.ticketapp.application.auth.AuthAppService;
 import com.ticketapp.application.auth.AuthenticatedUser;
 import com.ticketapp.application.auth.TokenPair;
+import com.ticketapp.controller.common.ApiResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
@@ -25,28 +26,28 @@ public class AuthController {
 
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
-    public TokenPair register(@Valid @RequestBody RegisterRequest request) {
-        return authAppService.register(request.email(), request.password());
+    public ApiResponse<TokenPair> register(@Valid @RequestBody RegisterRequest request) {
+        return ApiResponse.ok(authAppService.register(request.email(), request.password()));
     }
 
     @PostMapping("/login")
-    public TokenPair login(@Valid @RequestBody LoginRequest request) {
-        return authAppService.login(request.email(), request.password());
+    public ApiResponse<TokenPair> login(@Valid @RequestBody LoginRequest request) {
+        return ApiResponse.ok(authAppService.login(request.email(), request.password()));
     }
 
     @PostMapping("/refresh")
-    public TokenPair refresh(@Valid @RequestBody RefreshRequest request) {
-        return authAppService.refresh(request.refreshToken());
+    public ApiResponse<TokenPair> refresh(@Valid @RequestBody RefreshRequest request) {
+        return ApiResponse.ok(authAppService.refresh(request.refreshToken()));
     }
 
     @PostMapping("/logout")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void logout(@Valid @RequestBody RefreshRequest request) {
+    public ApiResponse<Void> logout(@Valid @RequestBody RefreshRequest request) {
         authAppService.logout(request.refreshToken());
+        return ApiResponse.ok();
     }
 
     @GetMapping("/me")
-    public AuthenticatedUser me(Authentication authentication) {
-        return authAppService.currentUser((Long) authentication.getPrincipal());
+    public ApiResponse<AuthenticatedUser> me(Authentication authentication) {
+        return ApiResponse.ok(authAppService.currentUser((Long) authentication.getPrincipal()));
     }
 }
