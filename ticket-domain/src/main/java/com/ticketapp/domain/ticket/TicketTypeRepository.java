@@ -10,4 +10,8 @@ public interface TicketTypeRepository {
     Optional<TicketType> findById(Long id);
 
     List<TicketType> findByEventId(Long eventId);
+
+    int decreaseStock(Long id, int quantity);
+
+    int increaseStock(Long id, int quantity);
 }
