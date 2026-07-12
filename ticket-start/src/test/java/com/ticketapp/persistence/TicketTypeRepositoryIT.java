@@ -39,4 +39,15 @@ class TicketTypeRepositoryIT extends AbstractIntegrationTest {
                 .extracting(TicketType::getId)
                 .containsExactly(saved.getId());
     }
+
+    @Test
+    void decreaseStockGuardNeverGoesNegative() {
+        User organizer = userRepository.save(Fixtures.newUser(UserRole.ORGANIZER));
+        Event event = eventRepository.save(Fixtures.newEvent(organizer.getId()));
+        TicketType saved = ticketTypeRepository.save(Fixtures.newTicketType(event.getId(), 500000, 2));
+
+        assertThat(ticketTypeRepository.decreaseStock(saved.getId(), 2)).isEqualTo(1);
+        assertThat(ticketTypeRepository.decreaseStock(saved.getId(), 1)).isEqualTo(0);
+        assertThat(ticketTypeRepository.findById(saved.getId()).orElseThrow().getStockAvailable()).isZero();
+    }
 }
