@@ -23,6 +23,9 @@ jwt:
   access-ttl: 15m
   refresh-ttl: 7d
 
+order:
+  reservation-ttl: 10m
+
 server:
   port: ${SERVER_PORT}
 

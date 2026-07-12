@@ -11,4 +11,6 @@ public interface OrderRepository {
     Optional<Order> findByOrderNumber(String orderNumber);
 
     Optional<Order> findByPaymentRef(String paymentRef);
+
+    long countByEventIdAndStatus(Long eventId, OrderStatus status);
 }

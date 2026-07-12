@@ -11,7 +11,11 @@ public enum ErrorCode {
     LOGIN_FAILED(1003, "Invalid email or password", HttpStatus.UNAUTHORIZED),
     INVALID_REFRESH_TOKEN(1004, "Invalid refresh token", HttpStatus.UNAUTHORIZED),
     UNAUTHENTICATED(1005, "Unauthenticated", HttpStatus.UNAUTHORIZED),
-    UNAUTHORIZED(1006, "You do not have permission", HttpStatus.FORBIDDEN);
+    UNAUTHORIZED(1006, "You do not have permission", HttpStatus.FORBIDDEN),
+    TICKET_TYPE_NOT_FOUND(2001, "Ticket type not found", HttpStatus.NOT_FOUND),
+    OUT_OF_STOCK(2002, "Not enough tickets available", HttpStatus.CONFLICT),
+    STOCK_CONFLICT(2003, "Stock changed during reservation, please retry", HttpStatus.CONFLICT),
+    RESERVE_FAILED(2004, "Could not reserve tickets", HttpStatus.INTERNAL_SERVER_ERROR);
 
     private final int code;
     private final String message;
