@@ -1,2 +1,5 @@
+server:
+  port: 0
+
 jwt:
   secret: test-secret-that-is-at-least-32-bytes-long-000
