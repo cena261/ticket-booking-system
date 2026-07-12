@@ -31,7 +31,7 @@ class AuthControllerIT extends AbstractIntegrationTest {
         String response = mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
-        return objectMapper.readTree(response);
+        return objectMapper.readTree(response).get("result");
     }
 
     private String register(String email, String password) throws Exception {
@@ -51,8 +51,9 @@ class AuthControllerIT extends AbstractIntegrationTest {
         String body = objectMapper.writeValueAsString(new Credentials(email, password));
         mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.accessToken").isNotEmpty())
-                .andExpect(jsonPath("$.refreshToken").isNotEmpty());
+                .andExpect(jsonPath("$.code").value(1000))
+                .andExpect(jsonPath("$.result.accessToken").isNotEmpty())
+                .andExpect(jsonPath("$.result.refreshToken").isNotEmpty());
     }
 
     @Test
@@ -67,15 +68,17 @@ class AuthControllerIT extends AbstractIntegrationTest {
 
     @Test
     void meRequiresAuthentication() throws Exception {
-        mvc.perform(get("/api/auth/me")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/auth/me"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(1005));
 
         String email = UUID.randomUUID() + "@demo.local";
         String token = register(email, "password123");
 
         mvc.perform(get("/api/auth/me").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.email").value(email))
-                .andExpect(jsonPath("$.role").value("USER"));
+                .andExpect(jsonPath("$.result.email").value(email))
+                .andExpect(jsonPath("$.result.role").value("USER"));
     }
 
     @Test
@@ -83,7 +86,8 @@ class AuthControllerIT extends AbstractIntegrationTest {
         String token = register(UUID.randomUUID() + "@demo.local", "password123");
 
         mvc.perform(get("/api/admin/anything").header("Authorization", "Bearer " + token))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value(1006));
     }
 
     @Test
@@ -106,7 +110,7 @@ class AuthControllerIT extends AbstractIntegrationTest {
 
         mvc.perform(post("/api/auth/logout").header("Authorization", "Bearer " + access)
                         .contentType(MediaType.APPLICATION_JSON).content(refreshBody(refresh)))
-                .andExpect(status().isNoContent());
+                .andExpect(status().isOk());
 
         mvc.perform(post("/api/auth/refresh").contentType(MediaType.APPLICATION_JSON).content(refreshBody(refresh)))
                 .andExpect(status().isUnauthorized());
