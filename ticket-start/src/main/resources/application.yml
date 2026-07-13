@@ -38,6 +38,12 @@ jwt:
 
 order:
   reservation-ttl: 10m
+  expiry:
+    enabled: true
+    poll-interval-ms: 5000
+    batch-size: 200
+    lock-wait: 0s
+    lock-lease: 10s
 
 kafka:
   topic:
