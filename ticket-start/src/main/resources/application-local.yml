@@ -16,6 +16,3 @@ spring:
       port: ${REDIS_PORT}
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
-    consumer:
-      group-id: ticket-app
-      auto-offset-reset: earliest

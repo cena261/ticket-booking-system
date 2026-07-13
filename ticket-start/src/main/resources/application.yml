@@ -17,6 +17,19 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+  kafka:
+    listener:
+      type: batch
+    producer:
+      acks: all
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+    consumer:
+      group-id: ticket-order-settlement
+      auto-offset-reset: earliest
+      max-poll-records: 500
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
 
 jwt:
   secret: ${JWT_SECRET}
@@ -25,6 +38,18 @@ jwt:
 
 order:
   reservation-ttl: 10m
+
+kafka:
+  topic:
+    order-place: order-place-topic
+    partitions: 3
+  producer:
+    ack-timeout-seconds: 5
+
+outbox:
+  poll-interval-ms: 500
+  batch-size: 500
+  idempotency-ttl: 24h
 
 server:
   port: ${SERVER_PORT}
