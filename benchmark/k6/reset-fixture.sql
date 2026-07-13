@@ -1,5 +1,8 @@
 DELETE FROM order_items;
 DELETE FROM orders;
+DELETE FROM order_queue;
+DELETE FROM outbox_event;
+DELETE FROM idempotency_key;
 
 INSERT INTO users (id, email, password_hash, role, status, created_at, updated_at)
 VALUES (1, 'organizer@demo.local', '$2a$10$7EqJtq98hPqEX7fNZaFWoOa8Rn.L4hBW.uV7bkYm9v3sUq1cU3H1u', 'ORGANIZER', 'ACTIVE', NOW(6), NOW(6))
