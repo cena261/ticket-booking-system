@@ -65,4 +65,16 @@ public class Order extends BaseTimeEntity {
         item.assignTo(this);
         items.add(item);
     }
+
+    /**
+     * Guarded state transition. Rejects any edge the state machine does not allow.
+     * In-memory guard only: concurrent transitions across instances are serialized by the
+     * conditional UPDATE in OrderRepository, not by this method.
+     */
+    public void transitionTo(OrderStatus target) {
+        if (!status.canTransitionTo(target)) {
+            throw new IllegalOrderTransitionException(status, target);
+        }
+        status = target;
+    }
 }
