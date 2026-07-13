@@ -40,28 +40,21 @@ public class AsyncReserveService {
     }
 
     public AsyncReserveResult reserveAsync(Long userId, Long ticketTypeId, int quantity) {
-        TicketType ticketType = null;
-
         long gate = stockCache.deduct(ticketTypeId, quantity);
         if (gate == RedisStockCacheService.MISS) {
-            ticketType = ticketTypeRepository.findById(ticketTypeId).orElse(null);
-            if (ticketType == null) {
-                return AsyncReserveResult.failed(ErrorCode.TICKET_TYPE_NOT_FOUND);
-            }
-            stockCache.warmUp(ticketTypeId, ticketType.getStockAvailable());
-            gate = stockCache.deduct(ticketTypeId, quantity);
+            // Fail closed, as in the sync path. In async mode a DB-seeded counter is even further
+            // off: stock_available cannot see any reserve that is still waiting to settle.
+            return AsyncReserveResult.failed(ErrorCode.TICKET_TYPE_NOT_ON_SALE);
         }
         if (gate != RedisStockCacheService.OK) {
             return AsyncReserveResult.failed(ErrorCode.OUT_OF_STOCK);
         }
 
         try {
+            TicketType ticketType = ticketTypeRepository.findById(ticketTypeId).orElse(null);
             if (ticketType == null) {
-                ticketType = ticketTypeRepository.findById(ticketTypeId).orElse(null);
-                if (ticketType == null) {
-                    stockCache.restore(ticketTypeId, quantity);
-                    return AsyncReserveResult.failed(ErrorCode.TICKET_TYPE_NOT_FOUND);
-                }
+                stockCache.restore(ticketTypeId, quantity);
+                return AsyncReserveResult.failed(ErrorCode.TICKET_TYPE_NOT_FOUND);
             }
 
             String token = "MQ-" + UUID.randomUUID();

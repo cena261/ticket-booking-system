@@ -16,7 +16,8 @@ public enum ErrorCode {
     OUT_OF_STOCK(2002, "Not enough tickets available", HttpStatus.CONFLICT),
     STOCK_CONFLICT(2003, "Stock changed during reservation, please retry", HttpStatus.CONFLICT),
     RESERVE_FAILED(2004, "Could not reserve tickets", HttpStatus.INTERNAL_SERVER_ERROR),
-    ORDER_TOKEN_NOT_FOUND(2005, "Order token not found", HttpStatus.NOT_FOUND);
+    ORDER_TOKEN_NOT_FOUND(2005, "Order token not found", HttpStatus.NOT_FOUND),
+    TICKET_TYPE_NOT_ON_SALE(2006, "Ticket type is not on sale", HttpStatus.CONFLICT);
 
     private final int code;
     private final String message;

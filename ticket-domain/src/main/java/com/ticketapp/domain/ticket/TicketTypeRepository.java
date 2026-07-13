@@ -11,6 +11,8 @@ public interface TicketTypeRepository {
 
     List<TicketType> findByEventId(Long eventId);
 
+    List<TicketType> findByStatus(TicketTypeStatus status);
+
     int decreaseStock(Long id, int quantity);
 
     int increaseStock(Long id, int quantity);

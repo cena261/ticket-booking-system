@@ -42,6 +42,8 @@ class ReserveOrderCompensationIT extends AbstractIntegrationTest {
         User organizer = userRepository.save(Fixtures.newUser(UserRole.ORGANIZER));
         Event event = eventRepository.save(Fixtures.newEvent(organizer.getId()));
         TicketType ticketType = ticketTypeRepository.save(Fixtures.newTicketType(event.getId(), 500000, 0));
+        // Deliberately seed Redis above the DB. The DB conditional UPDATE is the backstop that must
+        // reject the reservation and hand the cached ticket back.
         stockCache.warmUp(ticketType.getId(), 5);
 
         ReserveResult result = reserveOrderService.reserve(organizer.getId(), ticketType.getId(), 1);

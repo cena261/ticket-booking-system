@@ -3,6 +3,7 @@ package com.ticketapp.order;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ticketapp.application.order.OrderPlacedMessage;
 import com.ticketapp.application.order.OrderSettlementConsumer;
+import com.ticketapp.application.stock.StockWarmupService;
 import com.ticketapp.domain.event.Event;
 import com.ticketapp.domain.event.EventRepository;
 import com.ticketapp.domain.order.OrderRepository;
@@ -41,6 +42,9 @@ class OrderSettlementConsumerIT extends AbstractIntegrationTest {
     TicketTypeRepository ticketTypeRepository;
 
     @Autowired
+    StockWarmupService stockWarmup;
+
+    @Autowired
     OrderRepository orderRepository;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -57,6 +61,7 @@ class OrderSettlementConsumerIT extends AbstractIntegrationTest {
         User organizer = userRepository.save(Fixtures.newUser(UserRole.ORGANIZER));
         Event event = eventRepository.save(Fixtures.newEvent(organizer.getId()));
         TicketType ticketType = ticketTypeRepository.save(Fixtures.newTicketType(event.getId(), 500000, 20));
+        stockWarmup.warm(ticketType.getId());
 
         List<String> batch = new ArrayList<>();
         for (int i = 0; i < 5; i++) {
@@ -75,6 +80,7 @@ class OrderSettlementConsumerIT extends AbstractIntegrationTest {
         User organizer = userRepository.save(Fixtures.newUser(UserRole.ORGANIZER));
         Event event = eventRepository.save(Fixtures.newEvent(organizer.getId()));
         TicketType ticketType = ticketTypeRepository.save(Fixtures.newTicketType(event.getId(), 500000, 10));
+        stockWarmup.warm(ticketType.getId());
 
         String duplicated = payload(buyer.getId(), event.getId(), ticketType.getId(), 3);
 
