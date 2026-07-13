@@ -9,6 +9,7 @@ const errorCount = new Counter('orders_error');
 const reserveLatency = new Trend('reserve_latency_ms', true);
 
 const BASE_URL = __ENV.BASE_URL || 'http://localhost:8080';
+const ENDPOINT = __ENV.ENDPOINT || '/api/orders/reserve';
 const TICKET_TYPE_ID = parseInt(__ENV.TICKET_TYPE_ID || '1');
 const QUANTITY = parseInt(__ENV.QUANTITY || '1');
 const STOCK = parseInt(__ENV.STOCK || '1000');
@@ -46,7 +47,7 @@ export function setup() {
   }
 
   console.log(
-    `setup ok | user=${email} | ticketTypeId=${TICKET_TYPE_ID} | stock=${STOCK} | requests=${TOTAL_REQUESTS} | vus=${VUS}`,
+    `setup ok | endpoint=${ENDPOINT} | ticketTypeId=${TICKET_TYPE_ID} | stock=${STOCK} | requests=${TOTAL_REQUESTS} | vus=${VUS}`,
   );
   return { token: res.json('result.accessToken') };
 }
@@ -61,7 +62,7 @@ export default function (data) {
   };
 
   const start = Date.now();
-  const res = http.post(`${BASE_URL}/api/orders/reserve`, body, params);
+  const res = http.post(`${BASE_URL}${ENDPOINT}`, body, params);
   reserveLatency.add(Date.now() - start);
 
   let code;
@@ -106,6 +107,7 @@ export function handleSummary(data) {
     line,
     title,
     line,
+    row('Endpoint', ENDPOINT),
     row('Ticket type id', TICKET_TYPE_ID),
     row('Initial stock', STOCK),
     row('Total requests', TOTAL_REQUESTS),
