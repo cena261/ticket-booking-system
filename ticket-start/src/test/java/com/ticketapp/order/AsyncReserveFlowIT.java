@@ -2,6 +2,7 @@ package com.ticketapp.order;
 
 import com.ticketapp.application.order.AsyncReserveResult;
 import com.ticketapp.application.order.AsyncReserveService;
+import com.ticketapp.application.stock.StockWarmupService;
 import com.ticketapp.domain.event.Event;
 import com.ticketapp.domain.event.EventRepository;
 import com.ticketapp.domain.order.OrderRepository;
@@ -41,6 +42,9 @@ class AsyncReserveFlowIT extends AbstractIntegrationTest {
     TicketTypeRepository ticketTypeRepository;
 
     @Autowired
+    StockWarmupService stockWarmup;
+
+    @Autowired
     OrderRepository orderRepository;
 
     @Autowired
@@ -52,6 +56,7 @@ class AsyncReserveFlowIT extends AbstractIntegrationTest {
         User organizer = userRepository.save(Fixtures.newUser(UserRole.ORGANIZER));
         Event event = eventRepository.save(Fixtures.newEvent(organizer.getId()));
         TicketType ticketType = ticketTypeRepository.save(Fixtures.newTicketType(event.getId(), 500000, 10));
+        stockWarmup.warm(ticketType.getId());
 
         AsyncReserveResult result = asyncReserveService.reserveAsync(buyer.getId(), ticketType.getId(), 2);
 

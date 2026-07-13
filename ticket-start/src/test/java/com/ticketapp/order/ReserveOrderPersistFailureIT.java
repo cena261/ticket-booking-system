@@ -3,6 +3,7 @@ package com.ticketapp.order;
 import com.ticketapp.application.exception.ErrorCode;
 import com.ticketapp.application.order.ReserveOrderService;
 import com.ticketapp.application.order.ReserveResult;
+import com.ticketapp.application.stock.StockWarmupService;
 import com.ticketapp.domain.event.Event;
 import com.ticketapp.domain.event.EventRepository;
 import com.ticketapp.domain.order.Order;
@@ -44,6 +45,9 @@ class ReserveOrderPersistFailureIT extends AbstractIntegrationTest {
     TicketTypeRepository ticketTypeRepository;
 
     @Autowired
+    StockWarmupService stockWarmup;
+
+    @Autowired
     RedisStockCacheService stockCache;
 
     @Test
@@ -53,6 +57,7 @@ class ReserveOrderPersistFailureIT extends AbstractIntegrationTest {
         User organizer = userRepository.save(Fixtures.newUser(UserRole.ORGANIZER));
         Event event = eventRepository.save(Fixtures.newEvent(organizer.getId()));
         TicketType ticketType = ticketTypeRepository.save(Fixtures.newTicketType(event.getId(), 500000, 5));
+        stockWarmup.warm(ticketType.getId());
 
         ReserveResult result = reserveOrderService.reserve(organizer.getId(), ticketType.getId(), 2);
 

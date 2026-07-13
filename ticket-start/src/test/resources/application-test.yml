@@ -3,3 +3,8 @@ server:
 
 jwt:
   secret: test-secret-that-is-at-least-32-bytes-long-000
+
+order:
+  expiry:
+    # Tests drive sweepOnce() explicitly so a background sweep cannot race their assertions.
+    enabled: false

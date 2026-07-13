@@ -27,28 +27,22 @@ public class ReserveOrderService {
     }
 
     public ReserveResult reserve(Long userId, Long ticketTypeId, int quantity) {
-        TicketType ticketType = null;
-
         long gate = stockCache.deduct(ticketTypeId, quantity);
         if (gate == RedisStockCacheService.MISS) {
-            ticketType = ticketTypeRepository.findById(ticketTypeId).orElse(null);
-            if (ticketType == null) {
-                return ReserveResult.failed(ErrorCode.TICKET_TYPE_NOT_FOUND);
-            }
-            stockCache.warmUp(ticketTypeId, ticketType.getStockAvailable());
-            gate = stockCache.deduct(ticketTypeId, quantity);
+            // Fail closed. Reseeding the counter from stock_available here would over-count, because
+            // the DB always lags the reservations already in flight. Warming is StockWarmupService's
+            // job and only happens while the ticket type is quiescent.
+            return ReserveResult.failed(ErrorCode.TICKET_TYPE_NOT_ON_SALE);
         }
         if (gate != RedisStockCacheService.OK) {
             return ReserveResult.failed(ErrorCode.OUT_OF_STOCK);
         }
 
         try {
+            TicketType ticketType = ticketTypeRepository.findById(ticketTypeId).orElse(null);
             if (ticketType == null) {
-                ticketType = ticketTypeRepository.findById(ticketTypeId).orElse(null);
-                if (ticketType == null) {
-                    stockCache.restore(ticketTypeId, quantity);
-                    return ReserveResult.failed(ErrorCode.TICKET_TYPE_NOT_FOUND);
-                }
+                stockCache.restore(ticketTypeId, quantity);
+                return ReserveResult.failed(ErrorCode.TICKET_TYPE_NOT_FOUND);
             }
 
             TicketType reserved = ticketType;
