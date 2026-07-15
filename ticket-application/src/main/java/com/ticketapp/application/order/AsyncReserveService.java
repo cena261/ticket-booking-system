@@ -50,8 +50,6 @@ public class AsyncReserveService {
         try {
             long gate = stockCache.deduct(ticketTypeId, quantity);
             if (gate == RedisStockCacheService.MISS) {
-                // Fail closed, as in the sync path. In async mode a DB-seeded counter is even further
-                // off: stock_available cannot see any reserve that is still waiting to settle.
                 outcome = "not_on_sale";
                 return AsyncReserveResult.failed(ErrorCode.TICKET_TYPE_NOT_ON_SALE);
             }

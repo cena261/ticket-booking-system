@@ -68,14 +68,13 @@ management:
   endpoint:
     health:
       show-details: when-authorized
+    prometheus:
+      enable: true
   metrics:
     tags:
       application: ticket-app
-      # Distinguishes app instances in Grafana. Single instance today; Phase 8c sets INSTANCE_ID per
-      # container (app-1/app-2) so cross-node behaviour stays visible instead of being averaged into one.
       instance: ${INSTANCE_ID:app-1}
     distribution:
-      # Publish latency histograms so Grafana can compute p95/p99 heatmaps for the buy path and HTTP.
       percentiles-histogram:
         http.server.requests: true
         ticket.reserve: true

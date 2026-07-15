@@ -38,15 +38,10 @@ public class ReserveOrderService {
         try {
             long gate = stockCache.deduct(ticketTypeId, quantity);
             if (gate == RedisStockCacheService.MISS) {
-                // Fail closed. Reseeding the counter from stock_available here would over-count, because
-                // the DB always lags the reservations already in flight. Warming is StockWarmupService's
-                // job and only happens while the ticket type is quiescent.
                 outcome = "not_on_sale";
                 return ReserveResult.failed(ErrorCode.TICKET_TYPE_NOT_ON_SALE);
             }
             if (gate != RedisStockCacheService.OK) {
-                // The Redis CAS gate refused: stock is exhausted. This is exactly the oversell the
-                // system is built to prevent, so it is counted separately from ordinary failures.
                 outcome = "out_of_stock";
                 metrics.oversellPrevented();
                 return ReserveResult.failed(ErrorCode.OUT_OF_STOCK);
@@ -69,7 +64,6 @@ public class ReserveOrderService {
             });
 
             if (order == null) {
-                // DB conditional UPDATE lost the race though Redis admitted it: also an averted oversell.
                 stockCache.restore(ticketTypeId, quantity);
                 outcome = "conflict";
                 metrics.oversellPrevented();

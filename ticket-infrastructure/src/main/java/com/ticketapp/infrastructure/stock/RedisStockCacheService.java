@@ -53,10 +53,6 @@ public class RedisStockCacheService {
         redisTemplate.execute(restoreScript, List.of(key(ticketTypeId)), String.valueOf(quantity));
     }
 
-    /**
-     * Seeds the counter only if it is absent. Call through StockWarmupService, which is the only
-     * component allowed to decide when a seed is safe.
-     */
     public void warmUp(Long ticketTypeId, int stockAvailable) {
         redisTemplate.opsForValue().setIfAbsent(key(ticketTypeId), String.valueOf(stockAvailable));
     }

@@ -10,14 +10,6 @@ import org.springframework.stereotype.Component;
 
 import java.util.concurrent.TimeUnit;
 
-/**
- * Single home for the buy-path business metrics. Centralizing meter names and tags here keeps them
- * consistent across the sync/async reserve paths, the outbox publisher, and (later) payment, cache,
- * and rate-limiter code, so a dashboard query never has to chase a renamed meter.
- *
- * Meter names use dots; the Prometheus registry renders them as `ticket_*` with an `_total` suffix
- * on counters. The `instance` tag is applied globally by MetricsConfig, not here.
- */
 @Component
 public class BuyPathMetrics {
 
@@ -45,25 +37,16 @@ public class BuyPathMetrics {
                 .description("Requests rejected by the per-user rate limiter (wired in Phase 15)")
                 .register(registry);
 
-        // Pre-register the cache counters at zero so Phase 8c's success metric and any dashboard
-        // query exist from the first scrape, before a single cache lookup has happened.
         cacheCounter("l1", "hit");
         cacheCounter("l1", "miss");
         cacheCounter("l2", "hit");
         cacheCounter("l2", "miss");
 
-        // Async-settlement lag: rows still waiting to be published to Kafka. A gauge polls on scrape,
-        // so it always reflects the live backlog without any hot-path cost.
         Gauge.builder(OUTBOX_PENDING, outboxEventRepository, repo -> repo.countByStatus(OutboxStatus.PENDING))
                 .description("Outbox rows awaiting Kafka publish (async settlement backlog)")
                 .register(registry);
     }
 
-    /**
-     * Records one reserve attempt. {@code mode} is sync|async, {@code outcome} is the terminal state
-     * (success, out_of_stock, conflict, not_on_sale, not_found, error). Callers pass the start value
-     * captured with {@link System#nanoTime()} at entry.
-     */
     public void recordReserve(String mode, String outcome, long startNanos) {
         Timer.builder(RESERVE_TIMER)
                 .tag("mode", mode)
