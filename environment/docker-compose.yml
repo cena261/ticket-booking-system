@@ -77,9 +77,6 @@ services:
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
       DYNAMIC_CONFIG_ENABLED: "true"
 
-  # --- Observability (Phase 11) -------------------------------------------------
-  # bench = load-test stack (metrics only, no ELK); full = dev/demo (adds ELK in sub-phase B).
-  # Prometheus + Grafana MUST run during a benchmark: that is how bottlenecks are seen.
   prometheus:
     image: prom/prometheus:v3.13.1
     container_name: ticket-prometheus
@@ -93,8 +90,6 @@ services:
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus-data:/prometheus
-    # The app runs on the host (not in this compose file until Phase 8c), so Prometheus reaches it
-    # via host.docker.internal. On Linux this alias only resolves when mapped to the host gateway.
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
@@ -114,17 +109,6 @@ services:
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - grafana-data:/var/lib/grafana
-
-  node-exporter:
-    image: prom/node-exporter:v1.12.1
-    container_name: ticket-node-exporter
-    restart: unless-stopped
-    profiles: [bench, full]
-    command:
-      - "--path.rootfs=/host"
-    pid: host
-    volumes:
-      - /:/host:ro,rslave
 
   mysqld-exporter:
     image: prom/mysqld-exporter:v0.19.0
