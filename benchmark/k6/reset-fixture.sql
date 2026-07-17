@@ -17,3 +17,8 @@ INSERT INTO ticket_types (id, event_id, name, description, price, stock_initial,
 VALUES (1, 1, 'Standard', 'General admission.', 500000, 1000, 1000,
         NOW(6), TIMESTAMPADD(DAY, 29, NOW(6)), 'ON_SALE', NOW(6), NOW(6))
 ON DUPLICATE KEY UPDATE stock_initial = 1000, stock_available = 1000;
+
+INSERT INTO ticket_types (id, event_id, name, description, price, stock_initial, stock_available, sale_start_time, sale_end_time, status, created_at, updated_at)
+VALUES (2, 1, 'VIP', 'Front stage access.', 1500000, 200, 200,
+        NOW(6), TIMESTAMPADD(DAY, 29, NOW(6)), 'ON_SALE', NOW(6), NOW(6))
+ON DUPLICATE KEY UPDATE stock_initial = 200, stock_available = 200;
