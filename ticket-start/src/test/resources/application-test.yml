@@ -8,3 +8,10 @@ order:
   expiry:
     # Tests drive sweepOnce() explicitly so a background sweep cannot race their assertions.
     enabled: false
+
+event-cache:
+  # A cold Testcontainers rebuild (JIT + first JDBC round trip) can outlast the production 20ms
+  # re-read budget, which would drop lock losers into the DB fallback and make the thundering-herd
+  # assertion flaky. The lock-loss/re-read path under test is unchanged; only the budget is.
+  rebuild-retries: 20
+  rebuild-backoff: 25ms
