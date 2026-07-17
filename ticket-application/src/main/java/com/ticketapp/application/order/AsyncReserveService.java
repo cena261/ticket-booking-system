@@ -11,6 +11,7 @@ import com.ticketapp.domain.queue.OrderQueueRepository;
 import com.ticketapp.domain.ticket.TicketType;
 import com.ticketapp.domain.ticket.TicketTypeRepository;
 import com.ticketapp.infrastructure.stock.RedisStockCacheService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -18,6 +19,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.time.Instant;
 import java.util.UUID;
 
+@Slf4j
 @Service
 public class AsyncReserveService {
 
@@ -81,9 +83,13 @@ public class AsyncReserveService {
         } catch (Exception ex) {
             stockCache.restore(ticketTypeId, quantity);
             outcome = "error";
+            log.error("async reserve failed for userId={} ticketTypeId={} quantity={}, stock restored",
+                    userId, ticketTypeId, quantity, ex);
             return AsyncReserveResult.failed(ErrorCode.RESERVE_FAILED);
         } finally {
             metrics.recordReserve(MODE, outcome, startNanos);
+            log.info("reserve mode={} outcome={} userId={} ticketTypeId={} quantity={}",
+                    MODE, outcome, userId, ticketTypeId, quantity);
         }
     }
 
