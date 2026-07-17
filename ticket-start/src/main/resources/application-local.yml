@@ -5,7 +5,7 @@ spring:
     password: ${MYSQL_PASSWORD}
     hikari:
       pool-name: ticket-hikari
-      maximum-pool-size: 20
+      maximum-pool-size: 80
       minimum-idle: 5
       connection-timeout: 3000
   flyway:
