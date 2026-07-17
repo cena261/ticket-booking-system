@@ -44,11 +44,6 @@ public class EventBrowseService {
                 ticketType.getStatus(), liveStock(ticketType.getId()));
     }
 
-    /**
-     * Redis is the source of truth for availability; ticket_types.stock_available always over-counts
-     * while reserves are in flight, so it must never reach a buyer. A missing counter fails closed
-     * rather than reseeding from the DB, which would invent stock that does not exist.
-     */
     private int liveStock(Long ticketTypeId) {
         Long stock = stockCache.currentStock(ticketTypeId);
         if (stock == null || stock < 0) {

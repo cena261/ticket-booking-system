@@ -1,5 +1,5 @@
 import http from 'k6/http';
-import { check } from 'k6';
+import exec from 'k6/execution';
 import { Counter, Trend } from 'k6/metrics';
 
 const successOrders = new Counter('orders_success');
@@ -15,6 +15,7 @@ const QUANTITY = parseInt(__ENV.QUANTITY || '1');
 const STOCK = parseInt(__ENV.STOCK || '1000');
 const TOTAL_REQUESTS = parseInt(__ENV.TOTAL_REQUESTS || '2000');
 const VUS = parseInt(__ENV.VUS || '100');
+const REGISTER_BATCH = parseInt(__ENV.REGISTER_BATCH || '20');
 
 http.setResponseCallback(http.expectedStatuses(200, 201, 409));
 
@@ -35,29 +36,50 @@ export const options = {
   summaryTrendStats: ['min', 'med', 'avg', 'p(90)', 'p(95)', 'p(99)', 'max'],
 };
 
-export function setup() {
-  const email = `k6-${Date.now()}@demo.local`;
-  const body = JSON.stringify({ email, password: 'password123' });
+function registerUsers(count) {
   const params = { headers: { 'Content-Type': 'application/json' } };
+  const run = Date.now();
+  const tokens = [];
 
-  const res = http.post(`${BASE_URL}/api/auth/register`, body, params);
-  const ok = check(res, { 'setup: user registered': (r) => r.status === 201 });
-  if (!ok) {
-    throw new Error(`setup failed: register returned ${res.status} ${String(res.body).substring(0, 200)}`);
+  for (let start = 0; start < count; start += REGISTER_BATCH) {
+    const size = Math.min(REGISTER_BATCH, count - start);
+    const requests = [];
+    for (let i = 0; i < size; i++) {
+      requests.push([
+        'POST',
+        `${BASE_URL}/api/auth/register`,
+        JSON.stringify({ email: `k6-${run}-${start + i}@demo.local`, password: 'password123' }),
+        params,
+      ]);
+    }
+
+    const responses = http.batch(requests);
+    for (const res of responses) {
+      if (res.status !== 201) {
+        throw new Error(`setup failed: register returned ${res.status} ${String(res.body).substring(0, 200)}`);
+      }
+      tokens.push(res.json('result.accessToken'));
+    }
   }
+  return tokens;
+}
+
+export function setup() {
+  const tokens = registerUsers(VUS);
 
   console.log(
-    `setup ok | endpoint=${ENDPOINT} | ticketTypeId=${TICKET_TYPE_ID} | stock=${STOCK} | requests=${TOTAL_REQUESTS} | vus=${VUS}`,
+    `setup ok | endpoint=${ENDPOINT} | ticketTypeId=${TICKET_TYPE_ID} | stock=${STOCK} | requests=${TOTAL_REQUESTS} | vus=${VUS} | users=${tokens.length}`,
   );
-  return { token: res.json('result.accessToken') };
+  return { tokens };
 }
 
 export default function (data) {
+  const token = data.tokens[(exec.vu.idInTest - 1) % data.tokens.length];
   const body = JSON.stringify({ ticketTypeId: TICKET_TYPE_ID, quantity: QUANTITY });
   const params = {
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${data.token}`,
+      Authorization: `Bearer ${token}`,
     },
   };
 
@@ -112,6 +134,7 @@ export function handleSummary(data) {
     row('Initial stock', STOCK),
     row('Total requests', TOTAL_REQUESTS),
     row('Virtual users', VUS),
+    row('Distinct users', VUS),
     line,
     row('Reserved ok', success),
     row('Out of stock', oos),

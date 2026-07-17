@@ -48,8 +48,6 @@ class EventBrowseServiceTest {
 
     @Test
     void stockComesFromRedisNotFromTheDatabaseColumn() {
-        // The DB column always over-counts while requests are in flight (Phase 8a invariant),
-        // so browse must never surface it.
         givenEventWithTicketType(dbStockAvailable(900));
         when(stockCache.currentStock(TICKET_TYPE_ID)).thenReturn(3L);
 
@@ -61,7 +59,6 @@ class EventBrowseServiceTest {
 
     @Test
     void missingRedisKeyFailsClosedWithZeroStock() {
-        // Refusing to sell beats inventing stock: a missing counter must not reseed from the DB.
         givenEventWithTicketType(dbStockAvailable(900));
         when(stockCache.currentStock(TICKET_TYPE_ID)).thenReturn(null);
 
