@@ -25,14 +25,11 @@ Load tests for the buy path (`reserve`) and the read path (`browse`). Phase 12 o
 # 1. Bring up the stack WITHOUT ELK (compose runs from environment/)
 cd environment && docker compose --profile bench up -d && cd ..
 
-# 2. Start the app (or run it from your IDE)
-./mvnw -pl ticket-start spring-boot:run
+# 2. Start the app with the bench profile: WARN logging, no Logstash appender
+./mvnw -pl ticket-start spring-boot:run -Dspring-boot.run.profiles=bench
 
 # 3. Reset the fixture before EVERY run - stock must start from a known value
-docker exec -i ticket-mysql mysql -uroot -proot ticket_app < benchmark/k6/reset-fixture.sql
-docker exec ticket-redis redis-cli DEL TICKET:1:STOCK
-
-# 4. Restart the app so StockWarmupService re-seeds the counter, then:
+./benchmark/reset.sh
 
 # 4a. Buy path: flash sale (thundering herd on one hot ticket type)
 k6 run benchmark/k6/flash-sale.js
@@ -41,17 +38,27 @@ k6 run benchmark/k6/flash-sale.js
 k6 run benchmark/k6/browse.js
 ```
 
-**Resetting MySQL alone does not reset the stock counter, and neither does restarting the app.**
-`StockWarmupService` seeds with **SETNX** on `ApplicationReadyEvent`, so an existing key is left
-untouched — and Redis AOF means the key survives a Redis restart too. Skip the `DEL` and your next
-run starts at whatever stock the last run drained it to (usually 0), so every request returns
-out-of-stock and the baseline is worthless. Delete the key, then restart the app.
+### Why `reset.sh` and not just the SQL file
 
-Verify before every run:
+`reset-fixture.sql` restores MySQL only. **That is half a reset, and the missing half fails silently
+in a way that looks like a code bug.** `StockWarmupService` seeds Redis with **SETNX** on
+`ApplicationReadyEvent`, so it never corrects a key that already exists — and Redis AOF means the key
+survives a Redis restart too. Reset MySQL alone and the counter stays at whatever the last run
+drained it to (usually 0); the buy path then fails closed and every request returns
+`TICKET_TYPE_NOT_ON_SALE` (code 2006). `reset.sh` writes the counters directly from the DB rows, so
+no app restart is needed between runs.
+
+Run it while the app is up. Verify before every run:
 
 ```bash
 docker exec ticket-redis redis-cli GET TICKET:1:STOCK   # must equal the STOCK you pass to k6
 ```
+
+### Run with the `bench` profile
+
+The `bench` profile drops the log level to WARN and detaches the Logstash appender. Without it the
+app tries to ship every log line to a Logstash that `--profile bench` deliberately does not start,
+retrying every 5 seconds. That is measurement noise on the path being measured.
 
 ### Environment knobs
 
