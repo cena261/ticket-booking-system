@@ -1,11 +1,13 @@
 package com.ticketapp.infrastructure.stock;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 
+@Slf4j
 @Service
 public class RedisStockCacheService {
 
@@ -46,27 +48,29 @@ public class RedisStockCacheService {
 
     public long deduct(Long ticketTypeId, int quantity) {
         Long result = redisTemplate.execute(deductScript, List.of(key(ticketTypeId)), String.valueOf(quantity));
-        return result == null ? MISS : result;
+        long gate = result == null ? MISS : result;
+        log.debug("redis deduct key={} quantity={} result={}", key(ticketTypeId), quantity, gate);
+        return gate;
     }
 
     public void restore(Long ticketTypeId, int quantity) {
         redisTemplate.execute(restoreScript, List.of(key(ticketTypeId)), String.valueOf(quantity));
+        log.debug("redis restore key={} quantity={}", key(ticketTypeId), quantity);
     }
 
-    /**
-     * Seeds the counter only if it is absent. Call through StockWarmupService, which is the only
-     * component allowed to decide when a seed is safe.
-     */
     public void warmUp(Long ticketTypeId, int stockAvailable) {
-        redisTemplate.opsForValue().setIfAbsent(key(ticketTypeId), String.valueOf(stockAvailable));
+        Boolean seeded = redisTemplate.opsForValue().setIfAbsent(key(ticketTypeId), String.valueOf(stockAvailable));
+        log.debug("redis warmUp key={} stockAvailable={} seeded={}", key(ticketTypeId), stockAvailable, seeded);
     }
 
     public void evict(Long ticketTypeId) {
         redisTemplate.delete(key(ticketTypeId));
+        log.debug("redis evict key={}", key(ticketTypeId));
     }
 
     public Long currentStock(Long ticketTypeId) {
         String value = redisTemplate.opsForValue().get(key(ticketTypeId));
+        log.debug("redis get key={} value={}", key(ticketTypeId), value);
         return value == null ? null : Long.valueOf(value);
     }
 

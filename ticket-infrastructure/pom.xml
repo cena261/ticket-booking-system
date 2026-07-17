@@ -30,12 +30,6 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-kafka</artifactId>
         </dependency>
-        <!--
-            Redisson core only. The redisson-spring-boot-starter is built against Spring Boot 3.5
-            and pulls redisson-spring-data-35, which would override the Spring Data Redis 4.x that
-            Boot 4.1 ships and break the Lettuce-backed StringRedisTemplate on the buy path.
-            Redisson is used solely as a distributed lock; the RedissonClient bean is wired by hand.
-        -->
         <dependency>
             <groupId>org.redisson</groupId>
             <artifactId>redisson</artifactId>

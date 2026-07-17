@@ -29,11 +29,6 @@ public interface OrderJpaRepository extends OrderRepository, JpaRepository<Order
     @EntityGraph(attributePaths = "items")
     Optional<Order> findByPaymentRef(String paymentRef);
 
-    /**
-     * Two steps on purpose. Applying a limit to a query that also fetches the items collection
-     * makes Hibernate page in memory, so a large expiry backlog would be loaded in full. Selecting
-     * the ids first keeps the limit in SQL and lets the (status, expires_at) index drive it.
-     */
     @Override
     default List<Order> findExpiredPending(Instant now, int limit) {
         List<Long> ids = findExpiredPendingIds(now, Limit.of(limit));

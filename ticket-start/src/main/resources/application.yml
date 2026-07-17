@@ -60,6 +60,14 @@ outbox:
 server:
   port: ${SERVER_PORT}
 
+logging:
+  level:
+    com.ticketapp: ${LOG_LEVEL_APP:INFO}
+    com.ticketapp.infrastructure.stock: ${LOG_LEVEL_REDIS:INFO}
+    com.ticketapp.infrastructure.lock: ${LOG_LEVEL_LOCK:INFO}
+    org.hibernate.SQL: ${LOG_LEVEL_SQL:INFO}
+    org.hibernate.orm.jdbc.bind: ${LOG_LEVEL_SQL_PARAMS:INFO}
+
 management:
   endpoints:
     web:
@@ -68,6 +76,20 @@ management:
   endpoint:
     health:
       show-details: when-authorized
+    prometheus:
+      enable: true
   metrics:
     tags:
       application: ticket-app
+      instance: ${INSTANCE_ID:app-1}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+        ticket.reserve: true
+      slo:
+        http.server.requests: 50ms,100ms,200ms,500ms,1s
+        ticket.reserve: 10ms,25ms,50ms,100ms,250ms,500ms
+  prometheus:
+    metrics:
+      export:
+        enabled: true
