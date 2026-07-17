@@ -44,6 +44,35 @@ curl http://localhost:8080/actuator/health   # => {"status":"UP"}
 
 Copy `environment/.env.example` to `environment/.env` and fill in values (gitignored). Docker Compose reads it; the app's local defaults live in `application-local.yml`.
 
+## Observability
+
+Two Docker Compose profiles, run from `environment/`:
+
+```bash
+docker compose --profile bench up -d   # load-test stack: mysql, redis, kafka, prometheus, grafana
+docker compose --profile full  up -d   # dev/demo: the above plus elasticsearch, logstash, kibana
+```
+
+ELK never runs under `bench`: at the target request rate a line-per-request log is a firehose that would contend for the same cores the benchmark is measuring.
+
+| Surface | URL |
+|---------|-----|
+| App metrics | http://localhost:8080/actuator/prometheus |
+| Prometheus | http://localhost:9090 |
+| Grafana | http://localhost:3000 (admin/admin) |
+| Kibana | http://localhost:5601 |
+
+Grafana's Prometheus datasource and the `Ticket App - Overview` dashboard (HTTP, buy-path KPIs, JVM, Hikari, Kafka/outbox lag) are provisioned as code from `environment/grafana/provisioning`. Logs ship as JSON over TCP to Logstash and land in Elasticsearch under `logs-*`; the appender is non-blocking and fails open when Logstash is down.
+
+Log levels default to INFO and are env-toggled — set to DEBUG to trace every Redis/DB access while debugging, and leave at INFO (or WARN via the `bench` profile) for benchmarks:
+
+| Variable | Covers |
+|----------|--------|
+| `LOG_LEVEL_APP` | all `com.ticketapp` code |
+| `LOG_LEVEL_REDIS` | Redis stock counter operations |
+| `LOG_LEVEL_LOCK` | Redisson distributed lock acquire/release |
+| `LOG_LEVEL_SQL` | Hibernate SQL statements |
+
 ## Git flow
 
 Two long-lived branches: `dev` (working base) and `main` (never committed to directly). Each feature: short-lived `feat/<slug>` off `dev` -> PR -> merge into `dev` -> delete branch.

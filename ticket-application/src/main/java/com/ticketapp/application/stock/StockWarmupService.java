@@ -33,11 +33,14 @@ public class StockWarmupService {
     }
 
     public void warm(Long ticketTypeId, int stockAvailable) {
+        log.debug("warming ticket type {} with stockAvailable={}", ticketTypeId, stockAvailable);
         stockCache.warmUp(ticketTypeId, stockAvailable);
     }
 
     public void warm(Long ticketTypeId) {
         ticketTypeRepository.findById(ticketTypeId)
-                .ifPresent(ticketType -> warm(ticketType.getId(), ticketType.getStockAvailable()));
+                .ifPresentOrElse(
+                        ticketType -> warm(ticketType.getId(), ticketType.getStockAvailable()),
+                        () -> log.warn("cannot warm ticket type {}, not found in the database", ticketTypeId));
     }
 }
