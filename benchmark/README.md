@@ -30,6 +30,9 @@ cd environment && docker compose --profile bench up -d && cd ..
 
 # 3. Reset the fixture before EVERY run - stock must start from a known value
 docker exec -i ticket-mysql mysql -uroot -proot ticket_app < benchmark/k6/reset-fixture.sql
+docker exec ticket-redis redis-cli DEL TICKET:1:STOCK
+
+# 4. Restart the app so StockWarmupService re-seeds the counter, then:
 
 # 4a. Buy path: flash sale (thundering herd on one hot ticket type)
 k6 run benchmark/k6/flash-sale.js
@@ -38,9 +41,17 @@ k6 run benchmark/k6/flash-sale.js
 k6 run benchmark/k6/browse.js
 ```
 
-**Restart the app after resetting the fixture**, or warm the counter another way: the Redis stock
-counter is seeded once by `StockWarmupService` on `ApplicationReadyEvent` using SETNX, and the buy
-path fails closed on a missing key. Resetting MySQL alone does not reset Redis.
+**Resetting MySQL alone does not reset the stock counter, and neither does restarting the app.**
+`StockWarmupService` seeds with **SETNX** on `ApplicationReadyEvent`, so an existing key is left
+untouched — and Redis AOF means the key survives a Redis restart too. Skip the `DEL` and your next
+run starts at whatever stock the last run drained it to (usually 0), so every request returns
+out-of-stock and the baseline is worthless. Delete the key, then restart the app.
+
+Verify before every run:
+
+```bash
+docker exec ticket-redis redis-cli GET TICKET:1:STOCK   # must equal the STOCK you pass to k6
+```
 
 ### Environment knobs
 
