@@ -88,21 +88,27 @@ class EventMetadataCacheCrossInstanceIT extends AbstractIntegrationTest {
     }
 
     @Test
-    void staleLocalCopyIsDetectedByVersionNotByLocalTtl() {
+    void instanceBDetectsStalenessByVersionRatherThanWaitingForItsLocalTtlToLapse() {
         User organizer = userRepository.save(Fixtures.newUser(UserRole.ORGANIZER));
         Event event = eventRepository.save(Fixtures.newEvent(organizer.getId()));
-        ticketTypeRepository.save(Fixtures.newTicketType(event.getId(), 500_000L, 1000));
+        TicketType ticketType = ticketTypeRepository.save(Fixtures.newTicketType(event.getId(), 500_000L, 1000));
         instanceA.invalidate(event.getId());
 
         instanceB.get(event.getId());
         String versionSeenByB = redis.opsForValue().get("event:%d:ver".formatted(event.getId()));
 
+        ticketType.setPrice(900_000L);
+        ticketTypeRepository.save(ticketType);
         instanceA.invalidate(event.getId());
         instanceA.get(event.getId());
-        String versionAfterRebuild = redis.opsForValue().get("event:%d:ver".formatted(event.getId()));
 
+        String versionAfterRebuild = redis.opsForValue().get("event:%d:ver".formatted(event.getId()));
         assertThat(versionAfterRebuild)
                 .as("a rebuild must mint a new version, which is what makes instance B's copy detectably stale")
                 .isNotEqualTo(versionSeenByB);
+
+        assertThat(instanceB.get(event.getId()).ticketTypes().getFirst().price())
+                .as("B's L1 entry is still within its 10m TTL, so only the version check can catch the staleness")
+                .isEqualTo(900_000L);
     }
 }

@@ -12,10 +12,11 @@ public class EventCacheProperties {
     private Duration metadataTtl = Duration.ofMinutes(10);
     private double jitterRatio = 0.2;
     private Duration nullTtl = Duration.ofSeconds(30);
-    private Duration lockWait = Duration.ZERO;
+    private Duration lockWait = Duration.ofSeconds(1);
+    private Duration invalidateLockWait = Duration.ofSeconds(5);
     private Duration lockLease = Duration.ofSeconds(5);
-    private int rebuildRetries = 3;
-    private Duration rebuildBackoff = Duration.ofMillis(5);
+    private int rebuildRetries = 10;
+    private Duration rebuildBackoff = Duration.ofMillis(10);
 
     public long getMaximumSize() {
         return maximumSize;
@@ -63,6 +64,14 @@ public class EventCacheProperties {
 
     public void setLockWait(Duration lockWait) {
         this.lockWait = lockWait;
+    }
+
+    public Duration getInvalidateLockWait() {
+        return invalidateLockWait;
+    }
+
+    public void setInvalidateLockWait(Duration invalidateLockWait) {
+        this.invalidateLockWait = invalidateLockWait;
     }
 
     public Duration getLockLease() {

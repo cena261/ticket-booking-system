@@ -51,10 +51,11 @@ event-cache:
   metadata-ttl: 10m
   jitter-ratio: 0.2
   null-ttl: 30s
-  lock-wait: 0s
+  lock-wait: 1s
+  invalidate-lock-wait: 5s
   lock-lease: 5s
-  rebuild-retries: 3
-  rebuild-backoff: 5ms
+  rebuild-retries: 10
+  rebuild-backoff: 10ms
 
 kafka:
   topic:

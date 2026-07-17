@@ -66,7 +66,6 @@ public class EventMetadataCacheService {
         String version = redisTemplate.opsForValue().get(versionKey(eventId));
         if (version == null) {
             metrics.cacheMiss("l1");
-            metrics.cacheMiss("l2");
             return rebuild(eventId);
         }
 
@@ -88,6 +87,16 @@ public class EventMetadataCacheService {
     }
 
     public void invalidate(Long eventId) {
+        boolean acquired = lockService.tryRun(lockKey(eventId), properties.getInvalidateLockWait(),
+                properties.getLockLease(), () -> evict(eventId));
+        if (!acquired) {
+            log.warn("event metadata cache invalidate could not take the rebuild lock, evicting anyway eventId={}",
+                    eventId);
+            evict(eventId);
+        }
+    }
+
+    private void evict(Long eventId) {
         redisTemplate.delete(List.of(dataKey(eventId), versionKey(eventId)));
         l1Cache.invalidate(eventId);
         log.debug("event metadata cache invalidated eventId={}", eventId);
@@ -133,6 +142,7 @@ public class EventMetadataCacheService {
         if (data == null) {
             return null;
         }
+        metrics.cacheHit("l2");
         l1Cache.put(eventId, new CachedEventMetadata(version, data));
         return data;
     }
@@ -152,9 +162,8 @@ public class EventMetadataCacheService {
 
     private void store(Long eventId, EventMetadata metadata) {
         String version = UUID.randomUUID().toString();
-        Duration ttl = metadata.exists()
-                ? CacheTtlJitter.apply(properties.getMetadataTtl(), properties.getJitterRatio())
-                : properties.getNullTtl();
+        Duration base = metadata.exists() ? properties.getMetadataTtl() : properties.getNullTtl();
+        Duration ttl = CacheTtlJitter.apply(base, properties.getJitterRatio());
         String json;
         try {
             json = OBJECT_MAPPER.writeValueAsString(metadata);

@@ -1,5 +1,8 @@
 package com.ticketapp.event;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.ticketapp.application.event.EventMetadata;
 import com.ticketapp.application.event.EventMetadataCacheService;
 import com.ticketapp.domain.event.Event;
@@ -19,6 +22,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.clearInvocations;
@@ -27,6 +32,9 @@ import static org.mockito.Mockito.verify;
 
 @SpringBootTest
 class EventMetadataCacheIT extends AbstractIntegrationTest {
+
+    // Mirrors the mapper inside EventMetadataCacheService so injected JSON is byte-compatible.
+    private static final ObjectMapper TEST_MAPPER = JsonMapper.builder().addModule(new JavaTimeModule()).build();
 
     @Autowired
     EventMetadataCacheService cache;
@@ -92,17 +100,19 @@ class EventMetadataCacheIT extends AbstractIntegrationTest {
     }
 
     @Test
-    void versionMismatchRefetchesTheObjectFromL2RatherThanServingStaleLocalData() {
+    void versionMismatchRefetchesTheObjectFromL2RatherThanServingStaleLocalData() throws Exception {
         Event event = seedEvent();
-        cache.get(event.getId());
-        double l2HitsBefore = cacheCount("l2", "hit");
+        assertThat(cache.get(event.getId()).title()).isEqualTo("Test Event");
 
-        redis.opsForValue().set("event:%d:ver".formatted(event.getId()), "a-different-version");
+        EventMetadata rebuiltElsewhere = new EventMetadata(true, event.getId(), "Renamed By Another Instance", null,
+                null, null, event.getStartTime(), event.getEndTime(), event.getStatus(), null, List.of());
+        redis.opsForValue().set("event:%d:data".formatted(event.getId()),
+                TEST_MAPPER.writeValueAsString(rebuiltElsewhere));
+        redis.opsForValue().set("event:%d:ver".formatted(event.getId()), "version-minted-by-another-instance");
 
-        EventMetadata metadata = cache.get(event.getId());
-
-        assertThat(metadata.exists()).isTrue();
-        assertThat(cacheCount("l2", "hit")).isEqualTo(l2HitsBefore + 1);
+        assertThat(cache.get(event.getId()).title())
+                .as("a bumped version must force a refetch; serving the local copy here is the staleness bug")
+                .isEqualTo("Renamed By Another Instance");
     }
 
     @Test

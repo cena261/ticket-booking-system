@@ -36,4 +36,11 @@ class CacheTtlJitterTest {
     void zeroRatioDisablesJitter() {
         assertThat(CacheTtlJitter.apply(BASE, 0)).isEqualTo(BASE);
     }
+
+    @Test
+    void misconfiguredRatioAboveOneStillYieldsAUsefulTtlRatherThanCollapsingToNothing() {
+        IntStream.range(0, 200).forEach(i -> assertThat(CacheTtlJitter.apply(BASE, 5.0).toMillis())
+                .as("an out-of-range ratio must not silently disable the cache with a ~0 TTL")
+                .isGreaterThan((long) (BASE.toMillis() * 0.05)));
+    }
 }
