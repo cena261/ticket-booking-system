@@ -77,6 +77,88 @@ services:
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
       DYNAMIC_CONFIG_ENABLED: "true"
 
+  app-1:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: ticket-app:local
+    container_name: ticket-app-1
+    restart: unless-stopped
+    profiles: [app]
+    environment:
+      SPRING_PROFILES_ACTIVE: local,bench
+      SERVER_PORT: 8080
+      INSTANCE_ID: app-1
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-ticket_app}
+      MYSQL_USER: ${MYSQL_USER:-ticket}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-ticket}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      JWT_SECRET: ${JWT_SECRET:-change-me-to-a-long-random-secret-at-least-32-bytes}
+      JDK_JAVA_OPTIONS: -Xmx768m
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+  app-2:
+    image: ticket-app:local
+    container_name: ticket-app-2
+    restart: unless-stopped
+    profiles: [app]
+    environment:
+      SPRING_PROFILES_ACTIVE: local,bench
+      SERVER_PORT: 8080
+      INSTANCE_ID: app-2
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-ticket_app}
+      MYSQL_USER: ${MYSQL_USER:-ticket}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-ticket}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      JWT_SECRET: ${JWT_SECRET:-change-me-to-a-long-random-secret-at-least-32-bytes}
+      JDK_JAVA_OPTIONS: -Xmx768m
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: ticket-nginx
+    restart: unless-stopped
+    profiles: [app]
+    depends_on:
+      app-1:
+        condition: service_healthy
+      app-2:
+        condition: service_healthy
+    ports:
+      - "${APP_GATEWAY_PORT:-8080}:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+
   prometheus:
     image: prom/prometheus:v3.13.1
     container_name: ticket-prometheus
