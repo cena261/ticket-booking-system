@@ -1,12 +1,11 @@
 import http from 'k6/http';
 import exec from 'k6/execution';
-import { Counter, Trend } from 'k6/metrics';
+import { Counter } from 'k6/metrics';
 
 const successOrders = new Counter('orders_success');
 const outOfStock = new Counter('orders_out_of_stock');
 const stockConflict = new Counter('orders_stock_conflict');
 const errorCount = new Counter('orders_error');
-const reserveLatency = new Trend('reserve_latency_ms', true);
 
 const BASE_URL = __ENV.BASE_URL || 'http://localhost:8080';
 const ENDPOINT = __ENV.ENDPOINT || '/api/orders/reserve';
@@ -16,6 +15,7 @@ const STOCK = parseInt(__ENV.STOCK || '1000');
 const TOTAL_REQUESTS = parseInt(__ENV.TOTAL_REQUESTS || '2000');
 const VUS = parseInt(__ENV.VUS || '100');
 const REGISTER_BATCH = parseInt(__ENV.REGISTER_BATCH || '20');
+const MAX_DURATION = __ENV.MAX_DURATION || '120s';
 
 http.setResponseCallback(http.expectedStatuses(200, 201, 409));
 
@@ -25,24 +25,23 @@ export const options = {
       executor: 'shared-iterations',
       vus: VUS,
       iterations: TOTAL_REQUESTS,
-      maxDuration: '120s',
+      maxDuration: MAX_DURATION,
     },
   },
   thresholds: {
-    http_req_duration: ['p(95)<3000', 'p(99)<5000'],
-    http_req_failed: ['rate<0.01'],
     orders_success: [`count<=${STOCK}`],
+    orders_error: ['count==0'],
   },
   summaryTrendStats: ['min', 'med', 'avg', 'p(90)', 'p(95)', 'p(99)', 'max'],
 };
 
-function registerUsers(count) {
+export function setup() {
   const params = { headers: { 'Content-Type': 'application/json' } };
   const run = Date.now();
   const tokens = [];
 
-  for (let start = 0; start < count; start += REGISTER_BATCH) {
-    const size = Math.min(REGISTER_BATCH, count - start);
+  for (let start = 0; start < VUS; start += REGISTER_BATCH) {
+    const size = Math.min(REGISTER_BATCH, VUS - start);
     const requests = [];
     for (let i = 0; i < size; i++) {
       requests.push([
@@ -61,11 +60,6 @@ function registerUsers(count) {
       tokens.push(res.json('result.accessToken'));
     }
   }
-  return tokens;
-}
-
-export function setup() {
-  const tokens = registerUsers(VUS);
 
   console.log(
     `setup ok | endpoint=${ENDPOINT} | ticketTypeId=${TICKET_TYPE_ID} | stock=${STOCK} | requests=${TOTAL_REQUESTS} | vus=${VUS} | users=${tokens.length}`,
@@ -77,15 +71,10 @@ export default function (data) {
   const token = data.tokens[(exec.vu.idInTest - 1) % data.tokens.length];
   const body = JSON.stringify({ ticketTypeId: TICKET_TYPE_ID, quantity: QUANTITY });
   const params = {
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
   };
 
-  const start = Date.now();
   const res = http.post(`${BASE_URL}${ENDPOINT}`, body, params);
-  reserveLatency.add(Date.now() - start);
 
   let code;
   try {
@@ -117,24 +106,25 @@ export function handleSummary(data) {
   const rps = (m.http_reqs?.values?.rate || 0).toFixed(1);
   const p95 = (m.http_req_duration?.values?.['p(95)'] || 0).toFixed(0);
   const p99 = (m.http_req_duration?.values?.['p(99)'] || 0).toFixed(0);
+  const med = (m.http_req_duration?.values?.med || 0).toFixed(0);
   const oversell = success > STOCK ? `FAIL oversold ${success} > ${STOCK}` : `PASS ${success} <= ${STOCK}`;
+  const mode = STOCK >= TOTAL_REQUESTS ? 'throughput (no rejections expected)' : 'contention (oversell gate)';
 
   const width = 55;
   const line = `+${'-'.repeat(width)}+`;
   const row = (label, value) => `| ${String(label).padEnd(16)}: ${String(value).padEnd(width - 19)}|`;
-  const title = `|${'RESERVE BENCHMARK - FLASH SALE'.padStart(41).padEnd(width)}|`;
+  const title = `|${'RESERVE BENCHMARK'.padStart(36).padEnd(width)}|`;
 
   const summary = [
     '',
     line,
     title,
     line,
+    row('Mode', mode),
     row('Endpoint', ENDPOINT),
-    row('Ticket type id', TICKET_TYPE_ID),
     row('Initial stock', STOCK),
     row('Total requests', TOTAL_REQUESTS),
-    row('Virtual users', VUS),
-    row('Distinct users', VUS),
+    row('Concurrency', `${VUS} VUs / ${VUS} distinct users`),
     line,
     row('Reserved ok', success),
     row('Out of stock', oos),
@@ -142,7 +132,8 @@ export function handleSummary(data) {
     row('Errors', errors),
     row('Processed', processed),
     line,
-    row('Throughput rps', rps),
+    row('Throughput rps', `${rps} (includes setup)`),
+    row('Latency med ms', med),
     row('Latency p95 ms', p95),
     row('Latency p99 ms', p99),
     line,

@@ -1,64 +1,72 @@
 # Benchmark
 
-Load tests for the buy path (`reserve`) and the read path (`browse`). Phase 12 of the plan.
+Load tests for the buy path and the read path. Phase 12 of the plan.
 
-## Ground rules
+```
+benchmark/
+├── reset.sh              restore fixture (mysql + redis) before every run
+├── README.md
+└── k6/
+    ├── flash-sale.js     buy path: contention/oversell AND throughput (env-selected)
+    ├── browse.js         read path: GET /api/events/{id}
+    └── reset-fixture.sql seed rows used by reset.sh
+```
 
-1. **Runs locally, never against a deployed box.** A cheap VPS is 2 vCPU with 20–50ms RTT — a remote
-   run measures the VPS and the network, not this code. Network latency alone would swallow p99.
-2. **Every published number states the hardware it was measured on**, or it means nothing.
-3. **`--profile bench` only.** ELK must never run during a benchmark: it contends for the same cores
-   the app needs, and at high RPS a line-per-request log is a firehose for Logstash to ingest.
-4. **Zero oversell gates every accepted optimization.** Never trade correctness for RPS.
-5. **Watch k6's own CPU.** k6 at high VU counts eats 2–4 cores on the same host as the app. If the
-   generator saturates, the app's number is invalid.
+## Safety rules
+
+**Both scripts are closed models** (`shared-iterations` and `constant-vus`): concurrency can never
+exceed `VUS`, so the load generator cannot spiral. This is deliberate and must stay that way.
+
+**Never use `constant-arrival-rate` / `ramping-arrival-rate` here.** Those are open models: if the
+server is slower than the target rate, k6 spawns VUs without bound to keep the rate up. On this host
+that reached 1937 VUs, ran a 90-second test for 17 minutes, and the kernel OOM-killed Docker. An open
+model is only valid when the target rate is already known to be below capacity — which is exactly
+what these tests exist to find out.
+
+**Start at `VUS=50` and step up.** 100 is comfortable; past ~200 the generator competes with the app
+for the same 12 cores and the numbers stop meaning anything. Watch k6's own CPU in `htop`.
 
 ## Prerequisites
 
 - k6 (`k6 version` — developed against v2.0.0)
-- Docker daemon running
-- MySQL client for the fixture reset and oversell verification
+- Docker running, stack up: `cd environment && docker compose --profile bench up -d`
+- App running (`local` profile is fine)
 
 ## Running
 
 ```bash
-# 1. Bring up the stack WITHOUT ELK (compose runs from environment/)
-cd environment && docker compose --profile bench up -d && cd ..
-
-# 2. Start the app with the bench profile: WARN logging, no Logstash appender
-./mvnw -pl ticket-start spring-boot:run -Dspring-boot.run.profiles=bench
-
-# 3. Reset the fixture before EVERY run - stock must start from a known value
+# Always reset first. Stock must start from a known value.
 ./benchmark/reset.sh
 
-# 4a. Buy path: flash sale (thundering herd on one hot ticket type)
+# Buy path, contention mode: 2000 requests race for 1000 tickets.
+# Half succeed, half get rejected. This is the ZERO-OVERSELL gate.
 k6 run benchmark/k6/flash-sale.js
 
-# 4b. Read path: browse
-k6 run benchmark/k6/browse.js
+# Buy path, throughput mode: stock far exceeds requests, so nothing is
+# rejected and every request does full work (Redis CAS + 4 DB ops).
+./benchmark/reset.sh 1000000
+STOCK=1000000 TOTAL_REQUESTS=20000 VUS=100 k6 run benchmark/k6/flash-sale.js
+
+# Read path.
+./benchmark/reset.sh
+VUS=50 DURATION=60s k6 run benchmark/k6/browse.js
 ```
 
-### Why `reset.sh` and not just the SQL file
+Run each measurement **twice and keep the second**. The first run pays for JIT compilation and the
+Hikari pool ramping from `minimum-idle: 5`; on a short run that warm-up dominates the average.
 
-`reset-fixture.sql` restores MySQL only. **That is half a reset, and the missing half fails silently
-in a way that looks like a code bug.** `StockWarmupService` seeds Redis with **SETNX** on
-`ApplicationReadyEvent`, so it never corrects a key that already exists — and Redis AOF means the key
-survives a Redis restart too. Reset MySQL alone and the counter stays at whatever the last run
-drained it to (usually 0); the buy path then fails closed and every request returns
-`TICKET_TYPE_NOT_ON_SALE` (code 2006). `reset.sh` writes the counters directly from the DB rows, so
-no app restart is needed between runs.
+### Why one script for both buy-path modes
 
-Run it while the app is up. Verify before every run:
+The two modes differ only in whether stock runs out:
 
-```bash
-docker exec ticket-redis redis-cli GET TICKET:1:STOCK   # must equal the STOCK you pass to k6
-```
+| Mode | Stock vs requests | What it measures |
+|---|---|---|
+| Contention | stock < requests | Zero oversell under a thundering herd. Correctness. |
+| Throughput | stock > requests | Sustained RPS when every request does full work. |
 
-### Run with the `bench` profile
-
-The `bench` profile drops the log level to WARN and detaches the Logstash appender. Without it the
-app tries to ship every log line to a Logstash that `--profile bench` deliberately does not start,
-retrying every 5 seconds. That is measurement noise on the path being measured.
+Mixing them is what makes a number meaningless: with `STOCK=1000` and `TOTAL_REQUESTS=2000`, half the
+requests are full-work reserves and half are cheap Redis-only rejections, so the reported RPS is a
+blend of two unrelated costs. Keep the modes separate when quoting a throughput figure.
 
 ### Environment knobs
 
@@ -70,10 +78,11 @@ retrying every 5 seconds. That is measurement noise on the path being measured.
 | `ENDPOINT` | `/api/orders/reserve` | Use `/api/orders/reserve-async` for the async path |
 | `TICKET_TYPE_ID` | `1` | Hot ticket type |
 | `QUANTITY` | `1` | Tickets per request |
-| `STOCK` | `1000` | Initial stock; the oversell threshold asserts `orders_success <= STOCK` |
+| `STOCK` | `1000` | Must match the fixture; the oversell gate asserts `orders_success <= STOCK` |
 | `TOTAL_REQUESTS` | `2000` | Total iterations |
-| `VUS` | `100` | Virtual users **and** distinct registered users (one token each) |
+| `VUS` | `100` | Concurrency **and** distinct registered users (one token each) |
 | `REGISTER_BATCH` | `20` | Registrations per `http.batch` in `setup()` |
+| `MAX_DURATION` | `120s` | Hard stop |
 
 `browse.js`:
 
@@ -81,36 +90,36 @@ retrying every 5 seconds. That is measurement noise on the path being measured.
 |---|---|---|
 | `BASE_URL` | `http://localhost:8080` | Target |
 | `EVENT_ID` | `1` | Event to browse |
-| `RATE` | `2000` | Arrivals per second (open model) |
+| `VUS` | `50` | Concurrency |
 | `DURATION` | `60s` | Run length |
-| `PRE_VUS` / `MAX_VUS` | `200` / `800` | VU pool backing the arrival rate |
 
-Example: `VUS=500 TOTAL_REQUESTS=20000 STOCK=1000 k6 run benchmark/k6/flash-sale.js`
+### Why one token per VU
 
-## Why one token per VU
+`setup()` registers `VUS` distinct users and gives each VU its own token. A flash sale is thousands of
+different people, and the per-user rate limiter (Phase 15) would reject ~100% of the load test's own
+traffic if every request came from one account.
 
-`flash-sale.js` `setup()` registers `VUS` distinct users and hands each VU its own token. It
-previously registered one user and shared a single token across every VU. That is wrong twice over:
-a flash sale is thousands of different people, and the per-user rate limiter (Phase 15) would reject
-~100% of the load test's own traffic.
+## Why `reset.sh` and not just the SQL file
 
-## Why browse uses constant-arrival-rate but flash-sale uses shared-iterations
+`reset-fixture.sql` restores MySQL only. **That is half a reset, and the missing half fails silently
+in a way that looks like a code bug.** `StockWarmupService` seeds Redis with **SETNX** on
+`ApplicationReadyEvent`, so it never corrects a key that already exists — and Redis AOF means the key
+survives a Redis restart too. Reset MySQL alone and the counter stays at whatever the last run drained
+it to (usually 0); the buy path then fails closed and every request returns `TICKET_TYPE_NOT_ON_SALE`
+(code 2006). `reset.sh` writes the counters directly from the DB rows, so no app restart is needed.
 
-Browse is an **open** model: real refreshers keep hitting F5 at their own pace no matter how slow the
-server gets, so the load must not throttle itself when latency rises. A closed VU model would hide
-exactly the back-pressure we want to see — watch `dropped_iterations`, which is k6 telling you it
-could not keep up.
+`./benchmark/reset.sh [stock]` — the optional argument overrides stock on every ON_SALE ticket type,
+for throughput mode. Run it while the app is up. Verify:
 
-Flash-sale is a fixed contest for fixed stock: N requests race for `STOCK` tickets, and the
-interesting output is who won, not sustained arrival rate.
+```bash
+docker exec ticket-redis redis-cli GET TICKET:1:STOCK   # must equal the STOCK you pass to k6
+```
 
-## Oversell verification (run after EVERY flash-sale run)
+## Oversell verification (after every contention run)
 
-`flash-sale.js` asserts `orders_success <= STOCK` from the client side, but the database is the
-authority. The client can only see what it was told:
+`flash-sale.js` asserts `orders_success <= STOCK` client-side, but the database is the authority:
 
 ```sql
--- Must be zero rows: no ticket type may have sold more than it had.
 SELECT tt.id,
        tt.stock_initial,
        tt.stock_available,
@@ -122,21 +131,22 @@ GROUP BY tt.id, tt.stock_initial, tt.stock_available
 HAVING sold > tt.stock_initial OR tt.stock_available < 0;
 ```
 
-Note `stock_available` legitimately **over-counts** while requests are in flight (Redis is
-decremented before the DB commit in sync mode; the DB is untouched until settle in async mode). It
+Must return zero rows. `stock_available` legitimately over-counts while requests are in flight (Redis
+is decremented before the DB commit in sync mode; the DB is untouched until settle in async mode) and
 converges once the run drains. Only `< 0` is a bug.
 
 ## Reading the output
 
-- `http_req_duration` p95/p99 — server latency as the client saw it, including k6's own overhead.
-- `orders_success` / `orders_out_of_stock` / `orders_stock_conflict` — the buy path's three outcomes.
-  `stock_conflict` (code 2003) means Redis admitted a request the DB conditional UPDATE then
-  rejected; a nonzero count is normal under contention, not an error.
-- `dropped_iterations` (browse) — the arrival rate could not be sustained. The number is invalid as a
-  throughput figure if this is nonzero; the generator or the server gave up.
+- `Reserved ok` / `Out of stock` / `Stock conflict` — the buy path's three outcomes. `stock_conflict`
+  (code 2003) means Redis admitted a request the DB conditional UPDATE then rejected; nonzero is
+  normal under contention, not an error.
+- `Throughput rps` on `flash-sale.js` includes `setup()`'s registration calls, so it is slightly
+  understated. Negligible in throughput mode (20000 requests vs 100 registrations); do not quote it
+  from a short contention run.
+- Latency here is the client's view, including k6's own overhead.
 
-Correlate with Grafana (Phase 11) during the run: `ticket.reserve` timer by outcome, DB pool
-saturation, Kafka lag, `ticket.oversell.prevented`.
+Correlate with Grafana during the run: `ticket.reserve` timer by outcome, **HikariCP connections
+(active / idle / pending)**, Kafka lag, `ticket.oversell.prevented`.
 
 ## Results
 
