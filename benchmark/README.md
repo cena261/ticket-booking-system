@@ -122,4 +122,4 @@ saturation, Kafka lag, `ticket.oversell.prevented`.
 
 ## Results
 
-Recorded in `docs/performance-report.md`, one entry per iteration, one lever at a time.
+Recorded in `.claude/docs/performance-report.md`, one entry per iteration, one lever at a time.
