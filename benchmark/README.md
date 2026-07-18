@@ -184,6 +184,38 @@ Knobs (all default to current behaviour): `MYSQL_FLUSH_LOG`, `HIKARI_POOL_SIZE`,
 After every accepted lever, re-run the zero-oversell gate (`k6 run benchmark/k6/flash-sale.js` +
 the oversell query) — correctness gates every optimization; never trade it for RPS.
 
+## Cross-check with wrk
+
+The plan requires the headline result be validated with a second tool. `wrk/reserve-async.lua`
+replays the async-reserve contract k6 uses (`POST /api/orders/reserve-async`, Bearer JWT, body
+`{"ticketTypeId":1,"quantity":1}`) so the two tools measure the same path.
+
+wrk drives **one** token, so the per-user rate limiter must be raised or it throttles the whole run to
+`RESERVE_LIMIT`/s. Bring the stack up with the limiter effectively off and fsync at the tuned value:
+
+```bash
+cd environment
+RESERVE_LIMIT=100000000 MYSQL_FLUSH_LOG=2 docker compose --profile bench --profile app up -d --force-recreate
+cd ..
+
+# Huge stock so nothing is rejected: every request does full async work.
+./benchmark/reset.sh 1000000
+
+# Register one user and capture its JWT.
+export TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/register \
+  -H 'Content-Type: application/json' \
+  -d "{\"email\":\"wrk-$(date +%s)@demo.local\",\"password\":\"password123\"}" \
+  | python3 -c 'import sys,json; print(json.load(sys.stdin)["result"]["accessToken"])')
+
+# 100 connections to match k6's 100 VUs; watch k6/wrk CPU in htop as always.
+wrk -t8 -c100 -d30s -s benchmark/wrk/reserve-async.lua http://localhost:8080/api/orders/reserve-async
+```
+
+Compare `rps` / `latency_med_ms` against the k6 async row in `performance-report.md`. `non_200` and
+`socket_errors` must be 0 (any 429 means the limiter was not raised). This is a throughput cross-check
+only; the zero-oversell guarantee is proven by the contention scenario and `ReserveOrderConcurrencyIT`,
+not here.
+
 ## Results
 
 Recorded in `.claude/docs/performance-report.md`, one entry per iteration, one lever at a time.
