@@ -148,6 +148,84 @@ converges once the run drains. Only `< 0` is a bug.
 Correlate with Grafana during the run: `ticket.reserve` timer by outcome, **HikariCP connections
 (active / idle / pending)**, Kafka lag, `ticket.oversell.prevented`.
 
+## Pass 1 — tuning levers
+
+Config levers are reversible env knobs. Defaults reproduce the pool-80 baseline, so nothing changes
+until a knob is set. Change **one** knob, recreate the stack, re-run, record the delta. The ranked
+lever list and the knob for each is in `.claude/docs/performance-report.md` ("Remaining levers").
+
+```bash
+cd environment
+cp .env.example .env   # first time only; edit knobs here or pass inline
+
+# Example: lever 2 (fsync). One knob changed, everything else at default.
+MYSQL_FLUSH_LOG=2 docker compose --profile bench --profile app up -d --force-recreate
+```
+
+Then run the scenario for the lever under test and compare against the baseline row:
+
+```bash
+# Sync reserve (default endpoint /api/orders/reserve). Row-lock-bound; fsync is ~40% of the hold.
+./benchmark/reset.sh 1000000
+STOCK=1000000 TOTAL_REQUESTS=20000 VUS=100 k6 run benchmark/k6/flash-sale.js
+
+# Async reserve (/api/orders/reserve-async) — set ENDPOINT explicitly, the default is sync.
+./benchmark/reset.sh 1000000
+ENDPOINT=/api/orders/reserve-async STOCK=1000000 TOTAL_REQUESTS=20000 VUS=100 k6 run benchmark/k6/flash-sale.js
+
+# Browse (the accept-count / connection levers 5 target). Watch k6 CPU in htop at high VUs.
+./benchmark/reset.sh
+VUS=400 DURATION=30s k6 run benchmark/k6/browse.js
+```
+
+Knobs (all default to current behaviour): `MYSQL_FLUSH_LOG`, `HIKARI_POOL_SIZE`, `TOMCAT_ACCEPT_COUNT`,
+`TOMCAT_MAX_CONNECTIONS`, `TOMCAT_MAX_THREADS`, `VIRTUAL_THREADS`, `LOG_LEVEL_APP`, `APP_JAVA_OPTS`.
+
+After every accepted lever, re-run the zero-oversell gate (`k6 run benchmark/k6/flash-sale.js` +
+the oversell query) — correctness gates every optimization; never trade it for RPS.
+
+## Cross-check with wrk
+
+The plan requires the headline result be validated with a second tool. `wrk/reserve-async.lua`
+replays the async-reserve contract k6 uses (`POST /api/orders/reserve-async`, Bearer JWT, body
+`{"ticketTypeId":1,"quantity":1}`) so the two tools measure the same path.
+
+wrk drives **one** token, so the per-user rate limiter must be raised or it throttles the whole run to
+`RESERVE_LIMIT`/s. Bring the stack up with the limiter effectively off and fsync at the tuned value:
+
+```bash
+cd environment
+RESERVE_LIMIT=100000000 MYSQL_FLUSH_LOG=2 docker compose --profile bench --profile app up -d --force-recreate
+cd ..
+
+# VERIFY the limiter was actually raised, or the whole run is 429s (a single token
+# hits the per-user limit). Both must print 100000000; if they print 20, the recreate
+# did not apply -- fix it before running wrk.
+docker exec ticket-app-1 printenv RESERVE_RATELIMIT_LIMITFORPERIOD
+docker exec ticket-app-2 printenv RESERVE_RATELIMIT_LIMITFORPERIOD
+
+# Huge stock so nothing is rejected: every request does full async work.
+./benchmark/reset.sh 1000000
+
+# Register one user and capture its JWT.
+export TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/register \
+  -H 'Content-Type: application/json' \
+  -d "{\"email\":\"wrk-$(date +%s)@demo.local\",\"password\":\"password123\"}" \
+  | python3 -c 'import sys,json; print(json.load(sys.stdin)["result"]["accessToken"])')
+
+# 100 connections to match k6's 100 VUs; watch k6/wrk CPU in htop as always.
+wrk -t8 -c100 -d30s -s benchmark/wrk/reserve-async.lua http://localhost:8080/api/orders/reserve-async
+```
+
+Compare `rps` / `latency_med_ms` against the k6 async row in `performance-report.md`. wrk's own
+**`Non-2xx or 3xx responses`** line must be absent (0) and `socket_errors` all 0 — if that line shows
+a large count, the per-user limiter was not raised and the run is invalid (it measured 429 shedding,
+not the buy path). This is a throughput cross-check only; the zero-oversell guarantee is proven by the
+contention scenario and `ReserveOrderConcurrencyIT`, not here.
+
+wrk runs one Lua state per thread, so a hand-rolled per-response counter cannot aggregate across
+threads — that is why this script relies on wrk's built-in non-2xx line rather than counting in Lua.
+
 ## Results
 
 Recorded in `.claude/docs/performance-report.md`, one entry per iteration, one lever at a time.

@@ -5,7 +5,7 @@ spring:
     name: ticket-app
   threads:
     virtual:
-      enabled: true
+      enabled: ${VIRTUAL_THREADS:true}
   jpa:
     open-in-view: false
     hibernate:
@@ -78,6 +78,11 @@ outbox:
 
 server:
   port: ${SERVER_PORT}
+  tomcat:
+    accept-count: ${TOMCAT_ACCEPT_COUNT:100}
+    max-connections: ${TOMCAT_MAX_CONNECTIONS:8192}
+    threads:
+      max: ${TOMCAT_MAX_THREADS:200}
 
 logging:
   level:
