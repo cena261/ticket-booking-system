@@ -11,14 +11,6 @@ wrk.headers["Content-Type"] = "application/json"
 wrk.headers["Authorization"] = "Bearer " .. token
 wrk.body = string.format('{"ticketTypeId":%s,"quantity":%s}', ticketTypeId, quantity)
 
-local non200 = 0
-
-response = function(status, headers, body)
-  if status ~= 200 then
-    non200 = non200 + 1
-  end
-end
-
 done = function(summary, latency, requests)
   io.write("\n")
   io.write(string.format("requests      : %d\n", summary.requests))
@@ -27,7 +19,8 @@ done = function(summary, latency, requests)
   io.write(string.format("latency_med_ms: %.0f\n", latency:percentile(50) / 1000))
   io.write(string.format("latency_p95_ms: %.0f\n", latency:percentile(95) / 1000))
   io.write(string.format("latency_p99_ms: %.0f\n", latency:percentile(99) / 1000))
-  io.write(string.format("non_200       : %d\n", non200))
   io.write(string.format("socket_errors : connect=%d read=%d write=%d timeout=%d\n",
     summary.errors.connect, summary.errors.read, summary.errors.write, summary.errors.timeout))
+  io.write("NOTE: check wrk's own 'Non-2xx or 3xx responses' line above -- it must be absent (0).\n")
+  io.write("If present, the per-user rate limiter was not raised; the run is invalid. See README.\n")
 end

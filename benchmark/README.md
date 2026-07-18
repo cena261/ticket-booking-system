@@ -198,6 +198,12 @@ cd environment
 RESERVE_LIMIT=100000000 MYSQL_FLUSH_LOG=2 docker compose --profile bench --profile app up -d --force-recreate
 cd ..
 
+# VERIFY the limiter was actually raised, or the whole run is 429s (a single token
+# hits the per-user limit). Both must print 100000000; if they print 20, the recreate
+# did not apply -- fix it before running wrk.
+docker exec ticket-app-1 printenv RESERVE_RATELIMIT_LIMITFORPERIOD
+docker exec ticket-app-2 printenv RESERVE_RATELIMIT_LIMITFORPERIOD
+
 # Huge stock so nothing is rejected: every request does full async work.
 ./benchmark/reset.sh 1000000
 
@@ -211,10 +217,14 @@ export TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/register \
 wrk -t8 -c100 -d30s -s benchmark/wrk/reserve-async.lua http://localhost:8080/api/orders/reserve-async
 ```
 
-Compare `rps` / `latency_med_ms` against the k6 async row in `performance-report.md`. `non_200` and
-`socket_errors` must be 0 (any 429 means the limiter was not raised). This is a throughput cross-check
-only; the zero-oversell guarantee is proven by the contention scenario and `ReserveOrderConcurrencyIT`,
-not here.
+Compare `rps` / `latency_med_ms` against the k6 async row in `performance-report.md`. wrk's own
+**`Non-2xx or 3xx responses`** line must be absent (0) and `socket_errors` all 0 — if that line shows
+a large count, the per-user limiter was not raised and the run is invalid (it measured 429 shedding,
+not the buy path). This is a throughput cross-check only; the zero-oversell guarantee is proven by the
+contention scenario and `ReserveOrderConcurrencyIT`, not here.
+
+wrk runs one Lua state per thread, so a hand-rolled per-response counter cannot aggregate across
+threads — that is why this script relies on wrk's built-in non-2xx line rather than counting in Lua.
 
 ## Results
 
