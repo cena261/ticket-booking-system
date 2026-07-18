@@ -36,6 +36,13 @@ jwt:
   access-ttl: 15m
   refresh-ttl: 7d
 
+reserve:
+  rate-limit:
+    limit-for-period: 20
+    limit-refresh-period: 1s
+    maximum-users: 200000
+    user-expire-after-access: 10m
+
 order:
   reservation-ttl: 10m
   expiry:
