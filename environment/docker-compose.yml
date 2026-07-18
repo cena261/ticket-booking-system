@@ -100,6 +100,7 @@ services:
       REDIS_PORT: 6379
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       JWT_SECRET: ${JWT_SECRET:-change-me-to-a-long-random-secret-at-least-32-bytes}
+      RESERVE_RATELIMIT_LIMITFORPERIOD: ${RESERVE_LIMIT:-20}
       JDK_JAVA_OPTIONS: -Xmx768m
     depends_on:
       mysql:
@@ -134,6 +135,7 @@ services:
       REDIS_PORT: 6379
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       JWT_SECRET: ${JWT_SECRET:-change-me-to-a-long-random-secret-at-least-32-bytes}
+      RESERVE_RATELIMIT_LIMITFORPERIOD: ${RESERVE_LIMIT:-20}
       JDK_JAVA_OPTIONS: -Xmx768m
     depends_on:
       mysql:

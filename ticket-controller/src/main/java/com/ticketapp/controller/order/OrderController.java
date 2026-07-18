@@ -6,6 +6,7 @@ import com.ticketapp.application.order.AsyncReserveService;
 import com.ticketapp.application.order.OrderStatusView;
 import com.ticketapp.application.order.ReserveOrderService;
 import com.ticketapp.application.order.ReserveResult;
+import com.ticketapp.application.ratelimit.ReserveRateLimiter;
 import com.ticketapp.controller.common.ApiResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -23,16 +24,21 @@ public class OrderController {
 
     private final ReserveOrderService reserveOrderService;
     private final AsyncReserveService asyncReserveService;
+    private final ReserveRateLimiter reserveRateLimiter;
 
-    public OrderController(ReserveOrderService reserveOrderService, AsyncReserveService asyncReserveService) {
+    public OrderController(ReserveOrderService reserveOrderService, AsyncReserveService asyncReserveService,
+                           ReserveRateLimiter reserveRateLimiter) {
         this.reserveOrderService = reserveOrderService;
         this.asyncReserveService = asyncReserveService;
+        this.reserveRateLimiter = reserveRateLimiter;
     }
 
     @PostMapping("/reserve")
     public ResponseEntity<ApiResponse<ReserveResponse>> reserve(@Valid @RequestBody ReserveRequest request,
                                                                 Authentication authentication) {
-        ReserveResult result = reserveOrderService.reserve(userId(authentication),
+        Long userId = userId(authentication);
+        reserveRateLimiter.check(userId);
+        ReserveResult result = reserveOrderService.reserve(userId,
                 request.ticketTypeId(), request.quantity());
 
         if (result.success()) {
@@ -44,7 +50,9 @@ public class OrderController {
     @PostMapping("/reserve-async")
     public ResponseEntity<ApiResponse<AsyncReserveResponse>> reserveAsync(@Valid @RequestBody ReserveRequest request,
                                                                           Authentication authentication) {
-        AsyncReserveResult result = asyncReserveService.reserveAsync(userId(authentication),
+        Long userId = userId(authentication);
+        reserveRateLimiter.check(userId);
+        AsyncReserveResult result = asyncReserveService.reserveAsync(userId,
                 request.ticketTypeId(), request.quantity());
 
         if (result.success()) {

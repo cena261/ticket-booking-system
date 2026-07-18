@@ -5,6 +5,7 @@ import { Counter } from 'k6/metrics';
 const successOrders = new Counter('orders_success');
 const outOfStock = new Counter('orders_out_of_stock');
 const stockConflict = new Counter('orders_stock_conflict');
+const rateLimited = new Counter('orders_rate_limited');
 const errorCount = new Counter('orders_error');
 
 const BASE_URL = __ENV.BASE_URL || 'http://localhost:8080';
@@ -17,7 +18,7 @@ const VUS = parseInt(__ENV.VUS || '100');
 const REGISTER_BATCH = parseInt(__ENV.REGISTER_BATCH || '20');
 const MAX_DURATION = __ENV.MAX_DURATION || '120s';
 
-http.setResponseCallback(http.expectedStatuses(200, 201, 409));
+http.setResponseCallback(http.expectedStatuses(200, 201, 409, 429));
 
 export const options = {
   scenarios: {
@@ -90,6 +91,8 @@ export default function (data) {
     outOfStock.add(1);
   } else if (res.status === 409 && code === 2003) {
     stockConflict.add(1);
+  } else if (res.status === 429 && code === 2009) {
+    rateLimited.add(1);
   } else {
     errorCount.add(1);
     console.warn(`unexpected status=${res.status} code=${code} body=${String(res.body).substring(0, 160)}`);
@@ -101,8 +104,9 @@ export function handleSummary(data) {
   const success = m.orders_success?.values?.count || 0;
   const oos = m.orders_out_of_stock?.values?.count || 0;
   const conflict = m.orders_stock_conflict?.values?.count || 0;
+  const limited = m.orders_rate_limited?.values?.count || 0;
   const errors = m.orders_error?.values?.count || 0;
-  const processed = success + oos + conflict + errors;
+  const processed = success + oos + conflict + limited + errors;
   const rps = (m.http_reqs?.values?.rate || 0).toFixed(1);
   const p95 = (m.http_req_duration?.values?.['p(95)'] || 0).toFixed(0);
   const p99 = (m.http_req_duration?.values?.['p(99)'] || 0).toFixed(0);
@@ -129,6 +133,7 @@ export function handleSummary(data) {
     row('Reserved ok', success),
     row('Out of stock', oos),
     row('Stock conflict', conflict),
+    row('Rate limited', limited),
     row('Errors', errors),
     row('Processed', processed),
     line,
