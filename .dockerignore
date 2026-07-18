@@ -1,0 +1,13 @@
+**/target/
+.git/
+.github/
+.idea/
+.vscode/
+.claude/
+plans/
+docs/
+benchmark/
+environment/
+*.log
+*.env
+!.env.example

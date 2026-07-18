@@ -45,6 +45,18 @@ order:
     lock-wait: 0s
     lock-lease: 10s
 
+event-cache:
+  maximum-size: 10000
+  l1-expire-after-write: 10m
+  metadata-ttl: 10m
+  jitter-ratio: 0.2
+  null-ttl: 30s
+  lock-wait: 1s
+  invalidate-lock-wait: 5s
+  lock-lease: 5s
+  rebuild-retries: 10
+  rebuild-backoff: 10ms
+
 kafka:
   topic:
     order-place: order-place-topic
