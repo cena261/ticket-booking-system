@@ -1,8 +1,22 @@
 server:
   port: 0
 
+spring:
+  mail:
+    host: localhost
+    port: 3025
+    properties:
+      mail.smtp.auth: false
+
 jwt:
   secret: test-secret-that-is-at-least-32-bytes-long-000
+
+notification:
+  from: no-reply@test.local
+  timeout: 3s
+  bulkhead:
+    max-concurrent-calls: 4
+    max-wait: 0s
 
 sepay:
   account-number: "0123456789"
