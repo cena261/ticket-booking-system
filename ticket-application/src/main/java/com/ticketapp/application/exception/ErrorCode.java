@@ -20,7 +20,11 @@ public enum ErrorCode {
     TICKET_TYPE_NOT_ON_SALE(2006, "Ticket type is not on sale", HttpStatus.CONFLICT),
     ILLEGAL_ORDER_TRANSITION(2007, "Illegal order state transition", HttpStatus.CONFLICT),
     EVENT_NOT_FOUND(2008, "Event not found", HttpStatus.NOT_FOUND),
-    RATE_LIMIT_EXCEEDED(2009, "Too many reserve requests, please slow down", HttpStatus.TOO_MANY_REQUESTS);
+    RATE_LIMIT_EXCEEDED(2009, "Too many reserve requests, please slow down", HttpStatus.TOO_MANY_REQUESTS),
+    ORDER_NOT_FOUND(2010, "Order not found", HttpStatus.NOT_FOUND),
+    ORDER_ACCESS_DENIED(2011, "Order does not belong to this user", HttpStatus.FORBIDDEN),
+    ORDER_NOT_PAYABLE(2012, "Order is not awaiting payment", HttpStatus.CONFLICT),
+    WEBHOOK_SIGNATURE_INVALID(2013, "Invalid webhook signature", HttpStatus.UNAUTHORIZED);
 
     private final int code;
     private final String message;
