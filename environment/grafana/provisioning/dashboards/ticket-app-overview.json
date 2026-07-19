@@ -5,9 +5,9 @@
   "tags": ["ticket-app", "buy-path"],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "refresh": "5s",
-  "time": { "from": "now-15m", "to": "now" },
+  "time": { "from": "now-5m", "to": "now" },
   "templating": {
     "list": [
       {
@@ -19,26 +19,121 @@
         "includeAll": true,
         "multi": true,
         "current": { "text": "All", "value": "$__all" }
+      },
+      {
+        "name": "rate_window",
+        "label": "Rate window",
+        "type": "custom",
+        "query": "15s,30s,1m,2m,5m",
+        "includeAll": false,
+        "multi": false,
+        "current": { "text": "30s", "value": "30s" },
+        "options": [
+          { "text": "15s", "value": "15s", "selected": false },
+          { "text": "30s", "value": "30s", "selected": true },
+          { "text": "1m", "value": "1m", "selected": false },
+          { "text": "2m", "value": "2m", "selected": false },
+          { "text": "5m", "value": "5m", "selected": false }
+        ]
       }
     ]
   },
   "panels": [
     {
       "type": "row",
-      "title": "HTTP",
+      "title": "Live throughput",
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 }
+    },
+    {
+      "type": "stat",
+      "title": "Total HTTP req/s",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 1 },
+      "fieldConfig": { "defaults": { "unit": "reqps", "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null } ] } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "area", "textMode": "value" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(http_server_requests_seconds_count{job=\"ticket-app\", instance=~\"$instance\"}[$rate_window]))",
+          "legendFormat": "total"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Browse req/s (GET /api/events/{id})",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 1 },
+      "fieldConfig": { "defaults": { "unit": "reqps", "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [ { "color": "blue", "value": null } ] } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "area", "textMode": "value" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(http_server_requests_seconds_count{job=\"ticket-app\", uri=\"/api/events/{id}\", instance=~\"$instance\"}[$rate_window]))",
+          "legendFormat": "browse"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Reserve req/s (all outcomes)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 1 },
+      "fieldConfig": { "defaults": { "unit": "reqps", "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [ { "color": "purple", "value": null } ] } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "area", "textMode": "value" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(http_server_requests_seconds_count{job=\"ticket-app\", uri=~\"/api/orders/reserve.*\", instance=~\"$instance\"}[$rate_window]))",
+          "legendFormat": "reserve"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Reserve OK/s (HTTP 200)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 1 },
+      "fieldConfig": { "defaults": { "unit": "reqps", "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null } ] } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "area", "textMode": "value" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(http_server_requests_seconds_count{job=\"ticket-app\", uri=~\"/api/orders/reserve.*\", status=\"200\", instance=~\"$instance\"}[$rate_window]))",
+          "legendFormat": "reserve ok"
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "HTTP",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 }
     },
     {
       "type": "timeseries",
       "title": "HTTP request rate by status",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 1 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
       "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (status) (rate(http_server_requests_seconds_count{job=\"ticket-app\", instance=~\"$instance\"}[1m]))",
+          "expr": "sum by (status) (rate(http_server_requests_seconds_count{job=\"ticket-app\", instance=~\"$instance\"}[$rate_window]))",
           "legendFormat": "{{status}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "HTTP request rate by uri",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (uri) (rate(http_server_requests_seconds_count{job=\"ticket-app\", instance=~\"$instance\"}[$rate_window]))",
+          "legendFormat": "{{uri}}"
         }
       ]
     },
@@ -46,12 +141,12 @@
       "type": "timeseries",
       "title": "HTTP p95 latency by uri",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 1 },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 14 },
       "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
       "targets": [
         {
           "refId": "A",
-          "expr": "histogram_quantile(0.95, sum by (le, uri) (rate(http_server_requests_seconds_bucket{job=\"ticket-app\", instance=~\"$instance\"}[1m])))",
+          "expr": "histogram_quantile(0.95, sum by (le, uri) (rate(http_server_requests_seconds_bucket{job=\"ticket-app\", instance=~\"$instance\"}[$rate_window])))",
           "legendFormat": "{{uri}}"
         }
       ]
@@ -59,18 +154,18 @@
     {
       "type": "row",
       "title": "Buy path (business KPIs)",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 9 }
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 22 }
     },
     {
       "type": "timeseries",
       "title": "Reserve rate by outcome",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 10 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 23 },
       "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (mode, outcome) (rate(ticket_reserve_seconds_count{instance=~\"$instance\"}[1m]))",
+          "expr": "sum by (mode, outcome) (rate(ticket_reserve_seconds_count{instance=~\"$instance\"}[$rate_window]))",
           "legendFormat": "{{mode}} / {{outcome}}"
         }
       ]
@@ -79,22 +174,22 @@
       "type": "timeseries",
       "title": "Reserve latency (p50 / p95 / p99)",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 10 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 23 },
       "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
       "targets": [
         {
           "refId": "A",
-          "expr": "histogram_quantile(0.50, sum by (le) (rate(ticket_reserve_seconds_bucket{instance=~\"$instance\"}[1m])))",
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(ticket_reserve_seconds_bucket{instance=~\"$instance\"}[$rate_window])))",
           "legendFormat": "p50"
         },
         {
           "refId": "B",
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(ticket_reserve_seconds_bucket{instance=~\"$instance\"}[1m])))",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(ticket_reserve_seconds_bucket{instance=~\"$instance\"}[$rate_window])))",
           "legendFormat": "p95"
         },
         {
           "refId": "C",
-          "expr": "histogram_quantile(0.99, sum by (le) (rate(ticket_reserve_seconds_bucket{instance=~\"$instance\"}[1m])))",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(ticket_reserve_seconds_bucket{instance=~\"$instance\"}[$rate_window])))",
           "legendFormat": "p99"
         }
       ]
@@ -103,8 +198,9 @@
       "type": "stat",
       "title": "Oversell prevented (total)",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 18 },
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 31 },
       "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null } ] } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "none", "textMode": "value" },
       "targets": [
         {
           "refId": "A",
@@ -117,7 +213,7 @@
       "type": "timeseries",
       "title": "Outbox pending (async settlement backlog)",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 18 },
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 31 },
       "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
       "targets": [
         {
@@ -131,7 +227,7 @@
       "type": "timeseries",
       "title": "Kafka consumer lag",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 18 },
+      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 31 },
       "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
       "targets": [
         {
@@ -145,12 +241,12 @@
       "type": "timeseries",
       "title": "L1 cache hit ratio (0 until Phase 8c)",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 18 },
+      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 31 },
       "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1 }, "overrides": [] },
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(rate(ticket_cache_requests_total{level=\"l1\", result=\"hit\", instance=~\"$instance\"}[5m])) / clamp_min(sum(rate(ticket_cache_requests_total{level=\"l1\", instance=~\"$instance\"}[5m])), 1)",
+          "expr": "sum(rate(ticket_cache_requests_total{level=\"l1\", result=\"hit\", instance=~\"$instance\"}[$rate_window])) / clamp_min(sum(rate(ticket_cache_requests_total{level=\"l1\", instance=~\"$instance\"}[$rate_window])), 1)",
           "legendFormat": "l1 hit ratio"
         }
       ]
@@ -158,13 +254,13 @@
     {
       "type": "row",
       "title": "JVM & DB pool",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 24 }
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 37 }
     },
     {
       "type": "timeseries",
       "title": "JVM heap used",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 25 },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 38 },
       "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] },
       "targets": [
         {
@@ -178,12 +274,12 @@
       "type": "timeseries",
       "title": "GC pause rate",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 25 },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 38 },
       "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (instance) (rate(jvm_gc_pause_seconds_sum{job=\"ticket-app\", instance=~\"$instance\"}[1m]))",
+          "expr": "sum by (instance) (rate(jvm_gc_pause_seconds_sum{job=\"ticket-app\", instance=~\"$instance\"}[$rate_window]))",
           "legendFormat": "{{instance}} gc pause/s"
         }
       ]
@@ -192,23 +288,23 @@
       "type": "timeseries",
       "title": "HikariCP connections",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 25 },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 38 },
       "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
       "targets": [
         {
           "refId": "A",
           "expr": "hikaricp_connections_active{job=\"ticket-app\", instance=~\"$instance\"}",
-          "legendFormat": "active"
+          "legendFormat": "{{instance}} active"
         },
         {
           "refId": "B",
           "expr": "hikaricp_connections_idle{job=\"ticket-app\", instance=~\"$instance\"}",
-          "legendFormat": "idle"
+          "legendFormat": "{{instance}} idle"
         },
         {
           "refId": "C",
           "expr": "hikaricp_connections_pending{job=\"ticket-app\", instance=~\"$instance\"}",
-          "legendFormat": "pending"
+          "legendFormat": "{{instance}} pending"
         }
       ]
     }
