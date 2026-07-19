@@ -43,6 +43,16 @@ reserve:
     maximum-users: 200000
     user-expire-after-access: 10m
 
+sepay:
+  account-number: ${SEPAY_ACCOUNT_NUMBER:}
+  bank-code: ${SEPAY_BANK_CODE:}
+  webhook:
+    secret: ${SEPAY_WEBHOOK_SECRET:}
+    require-signature: ${SEPAY_WEBHOOK_REQUIRE_SIGNATURE:true}
+    timestamp-tolerance: 5m
+    lock-wait: 3s
+    lock-lease: 10s
+
 order:
   reservation-ttl: 10m
   expiry:
