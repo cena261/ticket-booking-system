@@ -58,6 +58,9 @@ public class Order extends BaseTimeEntity {
     @Column(name = "paid_at")
     private Instant paidAt;
 
+    @Column(name = "refund_required", nullable = false)
+    private boolean refundRequired;
+
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderItem> items = new ArrayList<>();
 
