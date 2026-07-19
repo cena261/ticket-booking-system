@@ -7,9 +7,11 @@ benchmark/
 ├── reset.sh              restore fixture (mysql + redis) before every run
 ├── README.md
 └── k6/
-    ├── flash-sale.js     buy path: contention/oversell AND throughput (env-selected)
-    ├── browse.js         read path: GET /api/events/{id}
-    └── reset-fixture.sql seed rows used by reset.sh
+    ├── flash-sale.js              buy path: contention/oversell AND throughput (env-selected)
+    ├── browse.js                  read path: GET /api/events/{id}
+    ├── webhook-storm.js           payment path: duplicate-storm exactly-once (correctness)
+    ├── webhook-storm-fixture.sql  seed PENDING orders for the webhook storm
+    └── reset-fixture.sql          seed rows used by reset.sh
 ```
 
 ## Safety rules
@@ -225,6 +227,71 @@ contention scenario and `ReserveOrderConcurrencyIT`, not here.
 
 wrk runs one Lua state per thread, so a hand-rolled per-response counter cannot aggregate across
 threads — that is why this script relies on wrk's built-in non-2xx line rather than counting in Lua.
+
+## Webhook duplicate-storm (Phase 12 pass 2)
+
+A **correctness test, not a throughput test.** Real payment traffic is ~0.1 txn/s (stock rate-limits it);
+the risk is concurrent retries defeating dedup — SePay retries a webhook up to 7x, and two threads that
+both see an empty `processed_webhook` row would both confirm the same order. `webhook-storm.js` fires many
+concurrent, self-signed webhooks over a small pool of `ORDERS` distinct transactions, so almost every
+request is a duplicate of one already in flight. Exactly-once is proven by the **database**, not by k6.
+
+The payloads are cryptographically indistinguishable from real SePay calls: HMAC is symmetric and we hold
+the secret, so k6 self-signs `sha256=hmac('sha256', SEPAY_SECRET, "<ts>." + body, 'hex')` — the exact
+scheme `SepayWebhookVerifier` checks. k6's `SEPAY_SECRET` must byte-for-byte equal whatever secret the
+running app loaded (`SEPAY_WEBHOOK_SECRET`), or every request is a 401 and the run is invalid. The app
+already reads its secret from `environment/.env`, so **reuse that value** rather than overriding it —
+pass it to k6 through a non-echoing shell so it never prints.
+
+```bash
+# Stack already up via environment/.env is fine (compose auto-loads it); no --force-recreate needed.
+
+# Seed PENDING orders with deterministic payment_refs (TKTSTORM0000001 ..). Overwrites any prior orders.
+docker exec -i ticket-mysql mysql -uroot -proot ticket_app < benchmark/k6/webhook-storm-fixture.sql
+
+# Reuse the app's configured secret; k6 must match it exactly.
+export SEPAY_SECRET=$(grep '^SEPAY_WEBHOOK_SECRET=' environment/.env | cut -d= -f2-)
+
+# Storm: 50 concurrent signers over 100 distinct txns for 30s. Closed model (constant-vus), safe.
+k6 run benchmark/k6/webhook-storm.js
+```
+
+Any 401 means the two secrets differ — that is the only failure mode of the transport itself.
+
+The rate here is deliberately concurrency-bound (`constant-vus`), never an arrival-rate executor — the
+open-model ban in "Safety rules" applies to every script in this directory. Exact RPS is irrelevant; what
+matters is many duplicates of the same few txn ids landing at once. `ORDERS` (default 100) **must match**
+the `@orders` count in `webhook-storm-fixture.sql`.
+
+| Var | Default | Meaning |
+|---|---|---|
+| `SEPAY_SECRET` | `test-webhook-secret` | Must equal the app's `SEPAY_WEBHOOK_SECRET` |
+| `ORDERS` | `100` | Distinct txns / PENDING orders; must match the fixture |
+| `AMOUNT` | `500000` | Transfer amount; must equal each order's `total_amount` |
+| `TXN_BASE` | `9000000000` | Base for `sepay_txn_id`; one distinct id per order |
+| `VUS` | `50` | Concurrent signers (closed model) |
+| `DURATION` | `30s` | Run length |
+
+### Exactly-once verification (the actual pass/fail)
+
+k6's summary only counts HTTP 200s; the guarantee is in the database:
+
+```sql
+-- 1. No order has more than one confirming payment row.
+SELECT order_id, COUNT(*) FROM payment_transaction GROUP BY order_id HAVING COUNT(*) > 1;   -- must be EMPTY
+
+-- 2. Every distinct txn confirmed exactly its one order (== ORDERS if every txn was hit).
+SELECT COUNT(*) FROM orders WHERE status = 'PAID';                                           -- == distinct txns sent
+SELECT COUNT(DISTINCT sepay_txn_id) FROM payment_transaction WHERE status = 'CONFIRMED';     -- == the same number
+
+-- 3. processed_webhook holds one row per distinct txn (dedup ledger).
+SELECT COUNT(*) FROM processed_webhook;                                                      -- == distinct txns sent
+```
+
+Query 1 returning any row is a dedup failure (the exact bug the test exists to catch). With the default
+fixture, a clean run confirms all 100 orders exactly once regardless of how many thousands of duplicate
+webhooks were fired. Record the result in `.claude/docs/performance-report.md` as a **correctness
+guarantee, not an RPS figure**.
 
 ## Results
 
