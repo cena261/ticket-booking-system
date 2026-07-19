@@ -30,6 +30,7 @@
         <testcontainers.version>2.0.5</testcontainers.version>
         <awaitility.version>4.3.0</awaitility.version>
         <logstash-logback-encoder.version>8.1</logstash-logback-encoder.version>
+        <greenmail.version>2.1.11</greenmail.version>
     </properties>
 
     <dependencyManagement>
@@ -58,6 +59,22 @@
                 <groupId>io.github.resilience4j</groupId>
                 <artifactId>resilience4j-ratelimiter</artifactId>
                 <version>${resilience4j.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.resilience4j</groupId>
+                <artifactId>resilience4j-bulkhead</artifactId>
+                <version>${resilience4j.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.resilience4j</groupId>
+                <artifactId>resilience4j-timelimiter</artifactId>
+                <version>${resilience4j.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.icegreen</groupId>
+                <artifactId>greenmail-junit5</artifactId>
+                <version>${greenmail.version}</version>
+                <scope>test</scope>
             </dependency>
 
             <dependency>
