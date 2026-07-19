@@ -23,6 +23,9 @@ public class SepayWebhookVerifier {
     }
 
     public boolean verify(byte[] rawBody, String signatureHeader, String timestampHeader) {
+        if (properties.getWebhook().getSecret().isBlank()) {
+            return false;
+        }
         if (signatureHeader == null || timestampHeader == null) {
             return false;
         }

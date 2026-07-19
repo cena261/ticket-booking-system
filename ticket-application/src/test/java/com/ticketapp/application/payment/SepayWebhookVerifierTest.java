@@ -65,6 +65,14 @@ class SepayWebhookVerifierTest {
     }
 
     @Test
+    void rejectsWhenSecretIsBlankWithoutThrowing() {
+        properties.getWebhook().setSecret("");
+        byte[] body = "{\"id\":1}".getBytes(StandardCharsets.UTF_8);
+        long ts = Instant.now().getEpochSecond();
+        assertThat(verifier.verify(body, "sha256=deadbeef", String.valueOf(ts))).isFalse();
+    }
+
+    @Test
     void rejectsSignatureWithoutPrefix() {
         byte[] body = "{\"id\":1}".getBytes(StandardCharsets.UTF_8);
         long ts = Instant.now().getEpochSecond();
