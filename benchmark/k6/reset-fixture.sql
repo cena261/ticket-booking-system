@@ -1,3 +1,6 @@
+DELETE FROM e_tickets;
+DELETE FROM payment_transaction;
+DELETE FROM processed_webhook;
 DELETE FROM order_items;
 DELETE FROM orders;
 DELETE FROM order_queue;
