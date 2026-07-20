@@ -114,6 +114,11 @@ services:
       VIRTUAL_THREADS: ${VIRTUAL_THREADS:-true}
       LOG_LEVEL_APP: ${LOG_LEVEL_APP:-INFO}
       JDK_JAVA_OPTIONS: ${APP_JAVA_OPTS:--Xmx768m}
+      MAIL_HOST: mailpit
+      MAIL_PORT: 1025
+      MAIL_SMTP_AUTH: "false"
+      MAIL_SMTP_STARTTLS: "false"
+      MAIL_FROM: ${MAIL_FROM:-no-reply@ticketapp.local}
     depends_on:
       mysql:
         condition: service_healthy
@@ -121,6 +126,8 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      mailpit:
+        condition: service_started
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:8080/actuator/health || exit 1"]
       interval: 10s
@@ -159,6 +166,11 @@ services:
       VIRTUAL_THREADS: ${VIRTUAL_THREADS:-true}
       LOG_LEVEL_APP: ${LOG_LEVEL_APP:-INFO}
       JDK_JAVA_OPTIONS: ${APP_JAVA_OPTS:--Xmx768m}
+      MAIL_HOST: mailpit
+      MAIL_PORT: 1025
+      MAIL_SMTP_AUTH: "false"
+      MAIL_SMTP_STARTTLS: "false"
+      MAIL_FROM: ${MAIL_FROM:-no-reply@ticketapp.local}
     depends_on:
       mysql:
         condition: service_healthy
@@ -166,6 +178,8 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      mailpit:
+        condition: service_started
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:8080/actuator/health || exit 1"]
       interval: 10s
@@ -186,6 +200,15 @@ services:
       - "${APP_GATEWAY_PORT:-8080}:80"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+
+  mailpit:
+    image: axllent/mailpit:v1.30.4
+    container_name: ticket-mailpit
+    restart: unless-stopped
+    profiles: [app]
+    ports:
+      - "${MAILPIT_SMTP_PORT:-1025}:1025"
+      - "${MAILPIT_UI_PORT:-8025}:8025"
 
   prometheus:
     image: prom/prometheus:v3.13.1
