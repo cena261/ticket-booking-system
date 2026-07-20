@@ -14,11 +14,6 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.util.List;
 
-/**
- * Single confirmation path shared by the payment webhook: takes a PENDING order to CONFIRMED,
- * issues its e-tickets, and emits OrderConfirmedEvent for best-effort notification. Must run
- * inside the caller's idempotent (once-only) transaction so e-ticket issuance is exactly-once.
- */
 @Service
 public class OrderFinalizationService {
 
