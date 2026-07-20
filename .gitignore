@@ -35,7 +35,9 @@ build/
 ### VS Code ###
 .vscode/
 
-/docs/
+/docs/*
+!/docs/architecture.md
+!/docs/performance-report.md
 /plans/
 /.claude/
 
