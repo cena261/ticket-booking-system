@@ -17,6 +17,17 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+  mail:
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:1025}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail.smtp.auth: ${MAIL_SMTP_AUTH:false}
+      mail.smtp.starttls.enable: ${MAIL_SMTP_STARTTLS:false}
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 5000
+      mail.smtp.writetimeout: 5000
   kafka:
     listener:
       type: batch
@@ -52,6 +63,13 @@ sepay:
     timestamp-tolerance: 5m
     lock-wait: 3s
     lock-lease: 10s
+
+notification:
+  from: ${MAIL_FROM:no-reply@ticketapp.local}
+  timeout: 5s
+  bulkhead:
+    max-concurrent-calls: 8
+    max-wait: 0s
 
 order:
   reservation-ttl: 10m

@@ -1,13 +1,17 @@
 package com.ticketapp.application.order;
 
+import com.ticketapp.application.notification.OrderCancelledEvent;
 import com.ticketapp.domain.order.Order;
 import com.ticketapp.domain.order.OrderItem;
 import com.ticketapp.domain.order.OrderRepository;
 import com.ticketapp.domain.ticket.TicketTypeRepository;
+import com.ticketapp.domain.user.User;
+import com.ticketapp.domain.user.UserRepository;
 import com.ticketapp.infrastructure.lock.DistributedLockService;
 import com.ticketapp.infrastructure.stock.RedisStockCacheService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -25,8 +29,10 @@ public class ReservationExpirySweeper {
 
     private final OrderRepository orderRepository;
     private final TicketTypeRepository ticketTypeRepository;
+    private final UserRepository userRepository;
     private final RedisStockCacheService stockCache;
     private final DistributedLockService lockService;
+    private final ApplicationEventPublisher eventPublisher;
     private final TransactionTemplate transactionTemplate;
     private final boolean enabled;
     private final int batchSize;
@@ -35,8 +41,10 @@ public class ReservationExpirySweeper {
 
     public ReservationExpirySweeper(OrderRepository orderRepository,
                                     TicketTypeRepository ticketTypeRepository,
+                                    UserRepository userRepository,
                                     RedisStockCacheService stockCache,
                                     DistributedLockService lockService,
+                                    ApplicationEventPublisher eventPublisher,
                                     PlatformTransactionManager transactionManager,
                                     @Value("${order.expiry.enabled}") boolean enabled,
                                     @Value("${order.expiry.batch-size}") int batchSize,
@@ -44,8 +52,10 @@ public class ReservationExpirySweeper {
                                     @Value("${order.expiry.lock-lease}") Duration lockLease) {
         this.orderRepository = orderRepository;
         this.ticketTypeRepository = ticketTypeRepository;
+        this.userRepository = userRepository;
         this.stockCache = stockCache;
         this.lockService = lockService;
+        this.eventPublisher = eventPublisher;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
         this.enabled = enabled;
         this.batchSize = batchSize;
@@ -97,6 +107,10 @@ public class ReservationExpirySweeper {
                         throw new IllegalStateException("restock of " + quantity + " for ticket type "
                                 + ticketTypeId + " matched no row, rolling back expiry of order " + orderId);
                     }
+                    String recipient = userRepository.findById(order.getUserId())
+                            .map(User::getEmail).orElse(null);
+                    eventPublisher.publishEvent(
+                            new OrderCancelledEvent(order.getOrderNumber(), recipient, "EXPIRED"));
                     return true;
                 })));
 

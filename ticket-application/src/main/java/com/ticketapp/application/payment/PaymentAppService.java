@@ -3,6 +3,7 @@ package com.ticketapp.application.payment;
 import com.ticketapp.application.exception.AppException;
 import com.ticketapp.application.exception.ErrorCode;
 import com.ticketapp.application.observability.BuyPathMetrics;
+import com.ticketapp.application.order.OrderFinalizationService;
 import com.ticketapp.domain.order.Order;
 import com.ticketapp.domain.order.OrderRepository;
 import com.ticketapp.domain.order.OrderStatus;
@@ -34,6 +35,7 @@ public class PaymentAppService {
     private final SepayProperties properties;
     private final TransactionTemplate transactionTemplate;
     private final BuyPathMetrics metrics;
+    private final OrderFinalizationService orderFinalizationService;
 
     public PaymentAppService(OrderRepository orderRepository,
                              ProcessedWebhookRepository processedWebhookRepository,
@@ -42,7 +44,8 @@ public class PaymentAppService {
                              DistributedLockService lockService,
                              SepayProperties properties,
                              PlatformTransactionManager transactionManager,
-                             BuyPathMetrics metrics) {
+                             BuyPathMetrics metrics,
+                             OrderFinalizationService orderFinalizationService) {
         this.orderRepository = orderRepository;
         this.processedWebhookRepository = processedWebhookRepository;
         this.paymentTransactionRepository = paymentTransactionRepository;
@@ -51,6 +54,7 @@ public class PaymentAppService {
         this.properties = properties;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
         this.metrics = metrics;
+        this.orderFinalizationService = orderFinalizationService;
     }
 
     public PaymentInstruction pay(Long userId, String orderNumber) {
@@ -114,9 +118,7 @@ public class PaymentAppService {
                 paymentTransactionRepository.save(record(request, order, PaymentTransactionStatus.AMOUNT_MISMATCH));
                 return WebhookOutcome.AMOUNT_MISMATCH;
             }
-            order.transitionTo(OrderStatus.PAID);
-            order.setPaidAt(now);
-            orderRepository.save(order);
+            orderFinalizationService.finalizeConfirmed(order, now);
             paymentTransactionRepository.save(record(request, order, PaymentTransactionStatus.CONFIRMED));
             return WebhookOutcome.CONFIRMED;
         });

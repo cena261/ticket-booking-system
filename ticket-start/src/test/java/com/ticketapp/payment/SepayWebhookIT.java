@@ -3,6 +3,7 @@ package com.ticketapp.payment;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ticketapp.application.payment.PaymentAppService;
 import com.ticketapp.application.payment.SepayWebhookRequest;
+import com.ticketapp.domain.eticket.ETicketRepository;
 import com.ticketapp.domain.event.Event;
 import com.ticketapp.domain.event.EventRepository;
 import com.ticketapp.domain.order.Order;
@@ -73,6 +74,9 @@ class SepayWebhookIT extends AbstractIntegrationTest {
     @Autowired
     PaymentAppService paymentAppService;
 
+    @Autowired
+    ETicketRepository eTicketRepository;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private Long ticketTypeId;
@@ -97,9 +101,10 @@ class SepayWebhookIT extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.success").value(true));
 
         Order reloaded = orderRepository.findByOrderNumber(order.getOrderNumber()).orElseThrow();
-        assertThat(reloaded.getStatus()).isEqualTo(OrderStatus.PAID);
+        assertThat(reloaded.getStatus()).isEqualTo(OrderStatus.CONFIRMED);
         assertThat(reloaded.getPaidAt()).isNotNull();
         assertThat(paymentTransactionRepository.countByOrderId(order.getId())).isEqualTo(1);
+        assertThat(eTicketRepository.countByOrderId(order.getId())).isEqualTo(1);
     }
 
     @Test
@@ -113,8 +118,9 @@ class SepayWebhookIT extends AbstractIntegrationTest {
         mvc.perform(webhookRaw(request)).andExpect(status().isOk());
 
         Order reloaded = orderRepository.findByOrderNumber(order.getOrderNumber()).orElseThrow();
-        assertThat(reloaded.getStatus()).isEqualTo(OrderStatus.PAID);
+        assertThat(reloaded.getStatus()).isEqualTo(OrderStatus.CONFIRMED);
         assertThat(paymentTransactionRepository.countByOrderId(order.getId())).isEqualTo(1);
+        assertThat(eTicketRepository.countByOrderId(order.getId())).isEqualTo(1);
     }
 
     @Test
@@ -147,8 +153,9 @@ class SepayWebhookIT extends AbstractIntegrationTest {
 
         assertThat(errors.get()).isZero();
         Order reloaded = orderRepository.findByOrderNumber(order.getOrderNumber()).orElseThrow();
-        assertThat(reloaded.getStatus()).isEqualTo(OrderStatus.PAID);
+        assertThat(reloaded.getStatus()).isEqualTo(OrderStatus.CONFIRMED);
         assertThat(paymentTransactionRepository.countByOrderId(order.getId())).isEqualTo(1);
+        assertThat(eTicketRepository.countByOrderId(order.getId())).isEqualTo(1);
     }
 
     @Test
@@ -162,7 +169,7 @@ class SepayWebhookIT extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.success").value(true));
 
         Order reloaded = orderRepository.findByOrderNumber(order.getOrderNumber()).orElseThrow();
-        assertThat(reloaded.getStatus()).isEqualTo(OrderStatus.PAID);
+        assertThat(reloaded.getStatus()).isEqualTo(OrderStatus.CONFIRMED);
         assertThat(reloaded.isRefundRequired()).isTrue();
         assertThat(paymentTransactionRepository.countByOrderId(order.getId())).isEqualTo(2);
     }
