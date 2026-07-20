@@ -1,0 +1,32 @@
+server:
+  port: 0
+
+spring:
+  mail:
+    host: localhost
+    port: 3025
+    properties:
+      mail.smtp.auth: false
+
+jwt:
+  secret: test-secret-that-is-at-least-32-bytes-long-000
+
+notification:
+  from: no-reply@test.local
+  timeout: 3s
+  bulkhead:
+    max-concurrent-calls: 4
+    max-wait: 0s
+
+sepay:
+  account-number: "0123456789"
+  bank-code: MBBank
+  webhook:
+    secret: test-webhook-secret
+    require-signature: true
+    timestamp-tolerance: 5m
+
+order:
+  expiry:
+    # Tests drive sweepOnce() explicitly so a background sweep cannot race their assertions.
+    enabled: false

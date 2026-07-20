@@ -1,0 +1,147 @@
+spring:
+  profiles:
+    active: local
+  application:
+    name: ticket-app
+  threads:
+    virtual:
+      enabled: ${VIRTUAL_THREADS:true}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  mail:
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:1025}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail.smtp.auth: ${MAIL_SMTP_AUTH:false}
+      mail.smtp.starttls.enable: ${MAIL_SMTP_STARTTLS:false}
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 5000
+      mail.smtp.writetimeout: 5000
+  kafka:
+    listener:
+      type: batch
+    producer:
+      acks: all
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+    consumer:
+      group-id: ticket-order-settlement
+      auto-offset-reset: earliest
+      max-poll-records: 500
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
+jwt:
+  secret: ${JWT_SECRET}
+  access-ttl: 15m
+  refresh-ttl: 7d
+
+reserve:
+  rate-limit:
+    limit-for-period: 20
+    limit-refresh-period: 1s
+    maximum-users: 200000
+    user-expire-after-access: 10m
+
+sepay:
+  account-number: ${SEPAY_ACCOUNT_NUMBER:}
+  bank-code: ${SEPAY_BANK_CODE:}
+  webhook:
+    secret: ${SEPAY_WEBHOOK_SECRET:}
+    require-signature: ${SEPAY_WEBHOOK_REQUIRE_SIGNATURE:true}
+    timestamp-tolerance: 5m
+    lock-wait: 3s
+    lock-lease: 10s
+
+notification:
+  from: ${MAIL_FROM:no-reply@ticketapp.local}
+  timeout: 5s
+  bulkhead:
+    max-concurrent-calls: 8
+    max-wait: 0s
+
+order:
+  reservation-ttl: 10m
+  expiry:
+    enabled: true
+    poll-interval-ms: 5000
+    batch-size: 200
+    lock-wait: 0s
+    lock-lease: 10s
+
+event-cache:
+  maximum-size: 10000
+  l1-expire-after-write: 10m
+  metadata-ttl: 10m
+  jitter-ratio: 0.2
+  null-ttl: 30s
+  lock-wait: 1s
+  invalidate-lock-wait: 5s
+  lock-lease: 5s
+  rebuild-retries: 10
+  rebuild-backoff: 10ms
+
+kafka:
+  topic:
+    order-place: order-place-topic
+    partitions: 3
+  producer:
+    ack-timeout-seconds: 5
+
+outbox:
+  poll-interval-ms: 500
+  batch-size: 500
+  idempotency-ttl: 24h
+
+server:
+  port: ${SERVER_PORT}
+  tomcat:
+    accept-count: ${TOMCAT_ACCEPT_COUNT:100}
+    max-connections: ${TOMCAT_MAX_CONNECTIONS:8192}
+    threads:
+      max: ${TOMCAT_MAX_THREADS:200}
+
+logging:
+  level:
+    com.ticketapp: ${LOG_LEVEL_APP:INFO}
+    com.ticketapp.infrastructure.stock: ${LOG_LEVEL_REDIS:INFO}
+    com.ticketapp.infrastructure.lock: ${LOG_LEVEL_LOCK:INFO}
+    org.hibernate.SQL: ${LOG_LEVEL_SQL:INFO}
+    org.hibernate.orm.jdbc.bind: ${LOG_LEVEL_SQL_PARAMS:INFO}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: when-authorized
+    prometheus:
+      enable: true
+  metrics:
+    tags:
+      application: ticket-app
+      instance: ${INSTANCE_ID:app-1}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+        ticket.reserve: true
+      slo:
+        http.server.requests: 50ms,100ms,200ms,500ms,1s
+        ticket.reserve: 10ms,25ms,50ms,100ms,250ms,500ms
+  prometheus:
+    metrics:
+      export:
+        enabled: true
