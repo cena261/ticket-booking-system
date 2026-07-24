@@ -17,7 +17,7 @@ own machine, and every headline number is backed by [`docs/performance-report.md
 ## Quickstart
 
 ```bash
-git clone [<this-repo>](https://github.com/cena261/ticket-app) && cd Ticket_App
+git clone https://github.com/cena261/ticket-app && cd Ticket_App
 ./demo.sh
 ```
 
